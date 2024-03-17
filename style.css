@@ -1,28 +1,94 @@
 body {
+    font-family: "Inter", sans-serif;
     background-color: #2b2b2b;
 }
 
 .ramp {
-    width: 800px;
+    width: 840px;
 }
 
 canvas#ramp {
-    background-color: #1f1f1f;
+    /* background-color: #1f1f1f; */
+    background-color: #000;
 }
 
-.ramp-controls {
+.ramp-display {
+    position: relative;
+    background-color: #000;
+}
+
+.ramp-display .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 500px;
+}
+
+.ramp-display .top .left-markings {
+    height: 100%;
+    width: 40px;
+    background-color: #000;
+    color: rgb(179, 144, 41);
+    font-size: 0.8rem;
+    text-align: right;
+    font-weight: 600;
+}
+
+.ramp-display .bottom-markings {
+    right: 0;
+    background-color: #000;
+    color: rgb(179, 144, 41);
+    font-size: 0.8rem;
+    text-align: right;
+    font-weight: 600;
+    padding-left: 40px;
+}
+
+.ramp-display .top ul {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.ramp-display .bottom-markings ul {
+    width: 100%;
+    height: 40px;
+    display: flex;
+    justify-content: space-between;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.block-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     padding: 1rem;
     border: 1px solid #0d0d0d;
     border-top-left-radius: 0.25rem;
     border-top-right-radius: 0.25rem;
+    background-color: #1f1f1f;
 }
 
-.ramp-controls button {
+.block-title h2 {
+    font-weight: 400;
+    font-size: 1rem;
+    text-transform: uppercase;
+    margin: 0;
+    color: #ddd;
+}
+
+.block-title button {
+    display: inline-block;
     outline: 0;
     border: 0;
     color: #fff;
-    padding: 0.33rem;
-    width: 2rem;
+    padding: 0.3rem 0.6rem;
     border-radius: 0.25rem;
     font-weight: 800;
 }
@@ -41,4 +107,18 @@ button.green {
 
 button.blue {
     background-color: #180ede;
+}
+
+.infobox {}
+
+.infobox #lut-title {
+    font-size: 1.5rem;
+    color: #ddd;
+    margin: 0;
+}
+
+.infobox #lut-size {
+    font-size: 1rem;
+    color: #ddd;
+    margin: 0;
 }

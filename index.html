@@ -4,20 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="ramp">
-        <div class="ramp-controls">
-            <button class="luma">L</button>
-            <button class="red">R</button>
-            <button class="green">G</button>
-            <button class="blue">B</button>
-        </div>
-        <canvas id="ramp" width="800" height="500"></canvas>
-    </div>
     <input type="file" name="upload" id="file-upload">
+    <div class="infobox">
+        <h2 id="lut-title"></h2>
+        <p id="lut-size"></p>
+    </div>
+    <div class="ramp">
+        <div class="block-title">
+            <h2>Gradient Ramp</h2>
+            <div class="controls">
+                <button class="luma">L</button>
+                <button class="red">R</button>
+                <button class="green">G</button>
+                <button class="blue">B</button>
+            </div>
+        </div>
+        <div class="ramp-display">
+            <div class="top">
+                <div class="left-markings">
+                    <ul>
+                        <li>100%</li>
+                        <li>75%</li>
+                        <li>50%</li>
+                        <li>25%</li>
+                        <li>0%</li>
+                    </ul>
+                </div>
+                <canvas id="ramp" width="800" height="500"></canvas>
+            </div>
+            <div class="bottom-markings">
+                <ul>
+                    <li>0.0</li>
+                    <li>0.25</li>
+                    <li>0.5</li>
+                    <li>0.75</li>
+                    <li>1.0</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="preview">
+        <canvas id="preview" width="800" height="500"></canvas>
+    </div>
 
+    <script src="math.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

@@ -9,6 +9,254 @@ class Color {
     getChannel(channel) {
         return this.channels[channel];
     }
+
+    // Vector operations
+    add(other) {
+        return new Color(this.r + other.r, this.g + other.g, this.b + other.b);
+    }
+
+    subtract(other) {
+        return new Color(this.r - other.r, this.g - other.g, this.b - other.b);
+    }
+
+    multiply(other) {
+        return new Color(this.r * other.r, this.g * other.g, this.b * other.b);
+    }
+
+    divide(other) {
+        return new Color(this.r / other.r, this.g / other.g, this.b / other.b);
+    }
+
+    // Scalar operations
+    multiplyScalar(scalar) {
+        return new Color(this.r * scalar, this.g * scalar, this.b * scalar);
+    }
+
+    divideScalar(scalar) {
+        return new Color(this.r / scalar, this.g / scalar, this.b / scalar);
+    }
+
+    // Other operations
+    // Floor
+    floor() {
+        return new Color(Math.floor(this.r), Math.floor(this.g), Math.floor(this.b));
+    }
+
+    // Ceil
+    ceil() {
+        return new Color(Math.ceil(this.r), Math.ceil(this.g), Math.ceil(this.b));
+    }
+
+    // Dot product
+    dot(other) {
+        return this.r * other.r + this.g * other.g + this.b * other.b;
+    }
+
+    // Cross product
+    cross(other) {
+        return new Color(
+            this.g * other.b - this.b * other.g,
+            this.b * other.r - this.r * other.b,
+            this.r * other.g - this.g * other.r
+        );
+    }
+
+    // Magnitude
+    magnitude() {
+        return Math.sqrt(this.r * this.r + this.g * this.g + this.b * this.b);
+    }
+
+    // Normalize
+    normalize() {
+        return this.divideScalar(this.magnitude());
+    }
+
+    // Clamp
+    clamp(min, max) {
+        return new Color(
+            Math.max(min, Math.min(max, this.r)),
+            Math.max(min, Math.min(max, this.g)),
+            Math.max(min, Math.min(max, this.b))
+        );
+    }
+
+    // Remap
+    remap(oldMin, oldMax, newMin, newMax) {
+        return new Color(
+            (this.r - oldMin) / (oldMax - oldMin) * (newMax - newMin) + newMin,
+            (this.g - oldMin) / (oldMax - oldMin) * (newMax - newMin) + newMin,
+            (this.b - oldMin) / (oldMax - oldMin) * (newMax - newMin) + newMin
+        );
+    }
+
+    // Lerp
+    lerp(other, t) {
+        return new Color(
+            this.r + (other.r - this.r) * t,
+            this.g + (other.g - this.g) * t,
+            this.b + (other.b - this.b) * t
+        );
+    }
+
+    // Slerp
+    slerp(other, t) {
+        const omega = Math.acos(this.dot(other));
+        return this.multiplyScalar(Math.sin((1 - t) * omega)).add(other.multiplyScalar(Math.sin(t * omega))).divideScalar(Math.sin(omega));
+    }
+
+    // Equal
+    equal(other) {
+        return this.r === other.r && this.g === other.g && this.b === other.b;
+    }
+
+    // Clone
+    clone() {
+        return new Color(this.r, this.g, this.b);
+    }
+
+    // toString
+    toString() {
+        return `Color(${this.r}, ${this.g}, ${this.b})`;
+    }
+
+    // toArray
+    toArray() {
+        return [this.r, this.g, this.b];
+    }
+
+    // toObject
+    toObject() {
+        return { r: this.r, g: this.g, b: this.b };
+    }
+
+    // toFloat32Array
+    toFloat32Array() {
+        return new Float32Array(this.toArray());
+    }
+
+    // toUint8Array
+    toUint8Array() {
+        return new Uint8Array(this.toArray().map(x => Math.floor(x * 255)));
+    }
+
+    // fromArray
+    static fromArray(array) {
+        return new Color(array[0], array[1], array[2]);
+    }
+
+    // fromObject
+    static fromObject(obj) {
+        return new Color(obj.r, obj.g, obj.b);
+    }
+
+    // fromFloat32Array
+    static fromFloat32Array(array) {
+        return new Color(array[0], array[1], array[2]);
+    }
+
+    // fromUint8Array
+    static fromUint8Array(array) {
+        return new Color(array[0] / 255, array[1] / 255, array[2] / 255);
+    }
+
+    // fromHex
+    static fromHex(hex) {
+        const r = parseInt(hex.substring(1, 3), 16) / 255;
+        const g = parseInt(hex.substring(3, 5), 16) / 255;
+        const b = parseInt(hex.substring(5, 7), 16) / 255;
+        return new Color(r, g, b);
+    }
+
+    // random
+    static random() {
+        return new Color(Math.random(), Math.random(), Math.random());
+    }
+
+    // lerp
+    static lerp(a, b, t) {
+        return a.lerp(b, t);
+    }
+
+    // slerp
+    static slerp(a, b, t) {
+        return a.slerp(b, t);
+    }
+
+    // equal
+    static equal(a, b) {
+        return a.equal(b);
+    }
+
+    // toString
+    static toString(color) {
+        return color.toString();
+    }
+
+    // toArray
+    static toArray(color) {
+        return color.toArray();
+    }
+
+    // toObject
+    static toObject(color) {
+        return color.toObject();
+    }
+
+    // toFloat32Array
+    static toFloat32Array(color) {
+        return color.toFloat32Array();
+    }
+
+    // toUint8Array
+    static toUint8Array(color) {
+        return color.toUint8Array();
+    }
+
+    // fromArray
+    static fromArray(array) {
+        return Color.fromArray(array);
+    }
+
+    // fromObject
+    static fromObject(obj) {
+        return Color.fromObject(obj);
+    }
+
+    // fromFloat32Array
+    static fromFloat32Array(array) {
+        return Color.fromFloat32Array(array);
+    }
+
+    // fromUint8Array
+    static fromUint8Array(array) {
+        return Color.fromUint8Array(array);
+    }
+
+    // fromHex
+    static fromHex(hex) {
+        return Color.fromHex(hex);
+    }
+
+    // random
+    static random() {
+        return Color.random();
+    }
+
+    // lerp
+    static lerp(a, b, t) {
+        return Color.lerp(a, b, t);
+    }
+
+    // slerp
+    static slerp(a, b, t) {
+        return Color.slerp(a, b, t);
+    }
+
+    // equal
+    static equal(a, b) {
+        return Color.equal(a, b);
+    }
+
 }
 
 // Global variable for LUT data
@@ -21,9 +269,22 @@ let lutTitle = "";
 const uploadInput = document.getElementById('file-upload');
 const canvasRamp = document.getElementById('ramp');
 const ctxRamp = canvasRamp.getContext('2d');
+const canvasPreview = document.getElementById('preview');
+const ctxPreview = canvasPreview.getContext('2d');
+const elTitle = document.getElementById('lut-title');
+const elSize = document.getElementById('lut-size');
+
+const testImage = new Image();
+testImage.src = 'assets/images/lut_test_fullgradient.png';
+testImage.onload = function () {
+    ctxPreview.drawImage(testImage, 0, 0, canvasPreview.width, canvasPreview.height);
+}
 
 // Event listeners
 uploadInput.addEventListener('change', handleFileUpload);
+canvasRamp.addEventListener('click', displayCoordinates);
+
+function displayCoordinates() { }
 
 drawGrid();
 
@@ -40,6 +301,21 @@ function handleFileUpload() {
             const content = e.target.result;
             lutData = parseLUTData(content);
 
+            // Display LUT title and size
+            elTitle.textContent = lutTitle;
+            elSize.textContent = lutSize;
+
+            const imgData = ctxPreview.getImageData(0, 0, canvasPreview.width, canvasPreview.height).data;
+            // Apply lut to image data
+            for (let i = 0; i < imgData.length; i += 4) {
+                const color = new Color(imgData[i] / 255, imgData[i + 1] / 255, imgData[i + 2] / 255);
+                const output = findLUTOutput(color);
+                imgData[i] = output.b * 255;
+                imgData[i + 1] = output.g * 255;
+                imgData[i + 2] = output.r * 255;
+            }
+            ctxPreview.putImageData(new ImageData(imgData, canvasPreview.width, canvasPreview.height), 0, 0);
+
         }
         reader.readAsText(file);
     }
@@ -54,8 +330,7 @@ function parseLUTData(content) {
 
         if (line.split(' ')[0].toLowerCase() === "title") {
             // Get the title of the LUT
-            const title = line.split(' ').slice(1).join(' ').replace(/"/g, '');
-            console.log("LUT Title: " + title);
+            lutTitle = line.split(' ').slice(1).join(' ').replace(/"/g, '');
             continue;
         }
 
@@ -89,6 +364,8 @@ function displayLUT() {
 
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
+    ctx.beginPath();
+
 
     // Draw grid
     drawGrid();
@@ -98,7 +375,7 @@ function displayLUT() {
     const yGCoords = [];
     const yBCoords = [];
 
-    for (let i = 0; i <= 255; i += 255 / lutSize) {
+    for (let i = 0; i <= 255; i += 255 / 255) {
         const output = findLUTOutput(new Color(i / 255, i / 255, i / 255));
         const x = i * (width / 256);
         const yR = height - output.r * height;
@@ -115,11 +392,12 @@ function displayLUT() {
     ctx.beginPath();
     ctx.moveTo(0, yRCoords[0]);
     for (let i = 1; i < xCoords.length; i++) {
+        if (yRCoords[i] <= 0) console.log(yRCoords[i]);
         ctx.lineTo(xCoords[i], yRCoords[i]);
-        ctx.arc(xCoords[i], yRCoords[i], 3, 0, 2 * Math.PI, false);
+        // ctx.arc(xCoords[i], yRCoords[i], 3, 0, 2 * Math.PI, false);
     }
-    ctx.strokeStyle = 'red';
     ctx.lineWidth = 2;
+    ctx.strokeStyle = 'red';
     ctx.stroke();
 
     // Green curve
@@ -127,7 +405,7 @@ function displayLUT() {
     ctx.moveTo(0, yGCoords[0]);
     for (let i = 1; i < xCoords.length; i++) {
         ctx.lineTo(xCoords[i], yGCoords[i]);
-        ctx.arc(xCoords[i], yGCoords[i], 3, 0, 2 * Math.PI, false);
+        // ctx.arc(xCoords[i], yGCoords[i], 3, 0, 2 * Math.PI, false);
     }
     ctx.strokeStyle = 'green';
     ctx.stroke();
@@ -137,7 +415,7 @@ function displayLUT() {
     ctx.moveTo(0, yBCoords[0]);
     for (let i = 1; i < xCoords.length; i++) {
         ctx.lineTo(xCoords[i], yBCoords[i]);
-        ctx.arc(xCoords[i], yBCoords[i], 3, 0, 2 * Math.PI, false);
+        // ctx.arc(xCoords[i], yBCoords[i], 3, 0, 2 * Math.PI, false);
     }
     ctx.strokeStyle = 'blue';
     ctx.stroke();
@@ -145,65 +423,193 @@ function displayLUT() {
 }
 
 function findLUTOutput(input) {
-    // Map to domain [0, 1]
-    const r = (input.r - 0.0) / (1.0 - 0.0);
-    const g = (input.g - 0.0) / (1.0 - 0.0);
-    const b = (input.b - 0.0) / (1.0 - 0.0);
+    // Map color to domain [0, 1]
+    const domainColor = input.remap(0, 1, 0, 1);
 
     // Map to grid units
-    const rIndex = r * (lutSize - 1);
-    const gIndex = g * (lutSize - 1);
-    const bIndex = b * (lutSize - 1);
+    const gridColor = domainColor.multiplyScalar(lutSize - 1);
 
     // Interpolate
-    const rOut = trilerp(bIndex, gIndex, rIndex, 0);
-    const gOut = trilerp(bIndex, gIndex, rIndex, 1);
-    const bOut = trilerp(bIndex, gIndex, rIndex, 2);
+    // tetraInterp(gridColor);
+    // const interpColor = trilerp(gridColor);
+    const interpColor = tetraInterp(gridColor);
 
-    return new Color(rOut, gOut, bOut);
+    return interpColor;
 }
 
-function trilerp(x, y, z, channel) {
-    const x_floor = Math.floor(x);
-    const y_floor = Math.floor(y);
-    const z_floor = Math.floor(z);
+// Trilinear interpolation
+// xyz > bgr
+function trilerp(input) {
+    const x_floor = Math.floor(input.b);
+    const y_floor = Math.floor(input.g);
+    const z_floor = Math.floor(input.r);
 
-    const x_ceil = Math.ceil(x);
-    const y_ceil = Math.ceil(y);
-    const z_ceil = Math.ceil(z);
+    const x_ceil = Math.ceil(input.b);
+    const y_ceil = Math.ceil(input.g);
+    const z_ceil = Math.ceil(input.r);
 
     // Calculate weights for each dimension based on distance normalized
-    const u = (x_floor == x_ceil) ? 0.0 : (x - x_floor) / (x_ceil - x_floor);
-    const v = (y_floor == y_ceil) ? 0.0 : (y - y_floor) / (y_ceil - y_floor);
-    const w = (z_floor == z_ceil) ? 0.0 : (z - z_floor) / (z_ceil - z_floor);
+    const u = (x_floor == x_ceil) ? 0.0 : (input.b - x_floor) / (x_ceil - x_floor);
+    const v = (y_floor == y_ceil) ? 0.0 : (input.g - y_floor) / (y_ceil - y_floor);
+    const w = (z_floor == z_ceil) ? 0.0 : (input.r - z_floor) / (z_ceil - z_floor);
 
-    // Interpolate
-    const p000 = lutData[(x_floor * lutSize + y_floor) * lutSize + z_floor].getChannel(channel);
-    const p001 = lutData[(x_floor * lutSize + y_floor) * lutSize + z_ceil].getChannel(channel);
-    const p010 = lutData[(x_floor * lutSize + y_ceil) * lutSize + z_floor].getChannel(channel);
-    const p011 = lutData[(x_floor * lutSize + y_ceil) * lutSize + z_ceil].getChannel(channel);
-    const p100 = lutData[(x_ceil * lutSize + y_floor) * lutSize + z_floor].getChannel(channel);
-    const p101 = lutData[(x_ceil * lutSize + y_floor) * lutSize + z_ceil].getChannel(channel);
-    const p110 = lutData[(x_ceil * lutSize + y_ceil) * lutSize + z_floor].getChannel(channel);
-    const p111 = lutData[(x_ceil * lutSize + y_ceil) * lutSize + z_ceil].getChannel(channel);
+    // Find points of the cube
+    const p000 = lutData[(x_floor * lutSize + y_floor) * lutSize + z_floor];
+    const p001 = lutData[(x_floor * lutSize + y_floor) * lutSize + z_ceil];
+    const p010 = lutData[(x_floor * lutSize + y_ceil) * lutSize + z_floor];
+    const p011 = lutData[(x_floor * lutSize + y_ceil) * lutSize + z_ceil];
+    const p100 = lutData[(x_ceil * lutSize + y_floor) * lutSize + z_floor];
+    const p101 = lutData[(x_ceil * lutSize + y_floor) * lutSize + z_ceil];
+    const p110 = lutData[(x_ceil * lutSize + y_ceil) * lutSize + z_floor];
+    const p111 = lutData[(x_ceil * lutSize + y_ceil) * lutSize + z_ceil];
 
-    // Along x-axis
-    const px00 = p000 + (p100 - p000) * u;
-    const px01 = p001 + (p101 - p001) * u;
-    const px10 = p010 + (p110 - p010) * u;
-    const px11 = p011 + (p111 - p011) * u;
+    // Lerp along x-axis
+    const px00 = p000.lerp(p100, u);
+    const px01 = p001.lerp(p101, u);
+    const px10 = p010.lerp(p110, u);
+    const px11 = p011.lerp(p111, u);
 
-    // Along y-axis
-    const pxy0 = px00 + (px10 - px00) * v;
-    const pxy1 = px01 + (px11 - px01) * v;
+    // Lerp along y-axis
+    const pxy0 = px00.lerp(px10, v);
+    const pxy1 = px01.lerp(px11, v);
 
-    // Along z-axis
-    return pxy0 + (pxy1 - pxy0) * w;
+    // Lerp along z-axis
+    return pxy0.lerp(pxy1, w);
+}
+
+function tetraInterp(input) {
+    const matrixT1 = math.matrix([
+        [1, 0, 0, 0, 0, 0, 0, 0],
+        [-1, 0, 0, 0, 1, 0, 0, 0],
+        [0, 0, 0, 0, -1, 0, 1, 0],
+        [0, 0, 0, 0, 0, 0, -1, 1]
+    ]);
+
+    const matrixT2 = math.matrix([
+        [1, 0, 0, 0, 0, 0, 0, 0],
+        [-1, 0, 0, 0, 1, 0, 0, 0],
+        [0, 0, 0, 0, 0, -1, 0, 1],
+        [0, 0, 0, 0, -1, 1, 0, 0]
+    ]);
+
+    const matrixT3 = math.matrix([
+        [1, 0, 0, 0, 0, 0, 0, 0],
+        [0, -1, 0, 0, 0, 1, 0, 0],
+        [0, 0, 0, 0, 0, -1, 0, 1],
+        [-1, 1, 0, 0, 0, 0, 0, 0]
+    ]);
+
+    const matrixT4 = math.matrix([
+        [1, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, -1, 0, 0, 0, 1, 0],
+        [-1, 0, 1, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, -1, 1]
+    ]);
+
+    const matrixT5 = math.matrix([
+        [1, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, -1, 0, 0, 0, 1],
+        [-1, 0, 1, 0, 0, 0, 0, 0],
+        [0, 0, -1, 1, 0, 0, 0, 0]
+    ]);
+
+    const matrixT6 = math.matrix([
+        [1, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, -1, 0, 0, 0, 1],
+        [0, -1, 0, 1, 0, 0, 0, 0],
+        [-1, 1, 0, 0, 0, 0, 0, 0]
+    ]);
+
+
+    const x_floor = Math.floor(input.b);
+    const y_floor = Math.floor(input.g);
+    const z_floor = Math.floor(input.r);
+
+    const x_ceil = Math.ceil(input.b);
+    const y_ceil = Math.ceil(input.g);
+    const z_ceil = Math.ceil(input.r);
+
+    const delta_x = input.b - x_floor;
+    const delta_y = input.g - y_floor;
+    const delta_z = input.r - z_floor;
+
+    const delta_t = math.matrix([1, delta_x, delta_z, delta_y]);
+
+    const Vr = math.matrix([
+        getLUTValue(z_floor, y_floor, x_floor).getChannel(0),
+        getLUTValue(z_floor, y_ceil, x_floor).getChannel(0),
+        getLUTValue(z_ceil, y_floor, x_floor).getChannel(0),
+        getLUTValue(z_ceil, y_ceil, x_floor).getChannel(0),
+        getLUTValue(z_floor, y_floor, x_ceil).getChannel(0),
+        getLUTValue(z_floor, y_ceil, x_ceil).getChannel(0),
+        getLUTValue(z_ceil, y_floor, x_ceil).getChannel(0),
+        getLUTValue(z_ceil, y_ceil, x_ceil).getChannel(0)
+    ]);
+
+    const Vg = math.matrix([
+        getLUTValue(z_floor, y_floor, x_floor).getChannel(1),
+        getLUTValue(z_floor, y_ceil, x_floor).getChannel(1),
+        getLUTValue(z_ceil, y_floor, x_floor).getChannel(1),
+        getLUTValue(z_ceil, y_ceil, x_floor).getChannel(1),
+        getLUTValue(z_floor, y_floor, x_ceil).getChannel(1),
+        getLUTValue(z_floor, y_ceil, x_ceil).getChannel(1),
+        getLUTValue(z_ceil, y_floor, x_ceil).getChannel(1),
+        getLUTValue(z_ceil, y_ceil, x_ceil).getChannel(1)
+    ]);
+
+    const Vb = math.matrix([
+        getLUTValue(z_floor, y_floor, x_floor).getChannel(2),
+        getLUTValue(z_floor, y_ceil, x_floor).getChannel(2),
+        getLUTValue(z_ceil, y_floor, x_floor).getChannel(2),
+        getLUTValue(z_ceil, y_ceil, x_floor).getChannel(2),
+        getLUTValue(z_floor, y_floor, x_ceil).getChannel(2),
+        getLUTValue(z_floor, y_ceil, x_ceil).getChannel(2),
+        getLUTValue(z_ceil, y_floor, x_ceil).getChannel(2),
+        getLUTValue(z_ceil, y_ceil, x_ceil).getChannel(2)
+    ]);
+
+    let rR, rG, rB;
+
+    if (delta_x > delta_z && delta_z > delta_y) {
+        const result = math.multiply(delta_t, matrixT1);
+        rR = math.multiply(result, Vr);
+        rG = math.multiply(result, Vg);
+        rB = math.multiply(result, Vb);
+    } else if (delta_x > delta_y && delta_y > delta_z) {
+        const result = math.multiply(delta_t, matrixT2);
+        rR = math.multiply(result, Vr);
+        rG = math.multiply(result, Vg);
+        rB = math.multiply(result, Vb);
+    } else if (delta_y > delta_x && delta_x > delta_z) {
+        const result = math.multiply(delta_t, matrixT3);
+        rR = math.multiply(result, Vr);
+        rG = math.multiply(result, Vg);
+        rB = math.multiply(result, Vb);
+    } else if (delta_z > delta_x && delta_x > delta_y) {
+        const result = math.multiply(delta_t, matrixT4);
+        rR = math.multiply(result, Vr);
+        rG = math.multiply(result, Vg);
+        rB = math.multiply(result, Vb);
+    } else if (delta_z > delta_y && delta_y > delta_x) {
+        const result = math.multiply(delta_t, matrixT5);
+        rR = math.multiply(result, Vr);
+        rG = math.multiply(result, Vg);
+        rB = math.multiply(result, Vb);
+    } else {
+        const result = math.multiply(delta_t, matrixT6);
+        rR = math.multiply(result, Vr);
+        rG = math.multiply(result, Vg);
+        rB = math.multiply(result, Vb);
+    }
+
+    return new Color(rR, rG, rB);
 }
 
 function drawGrid() {
     const width = canvasRamp.width;
     const height = canvasRamp.height;
+
+    ctxRamp.clearRect(0, 0, width, height);
 
     const steps = 4;
     const stepSizeH = width / steps;
@@ -225,6 +631,10 @@ function drawGrid() {
         ctxRamp.moveTo(0, stepSizeV * (i + 1));
     }
 
-    ctxRamp.strokeStyle = "rgba(255,255,255,0.1)";
+    ctxRamp.strokeStyle = "rgba(179, 144, 41, 0.5)";
     ctxRamp.stroke();
+}
+
+function getLUTValue(x, y, z) {
+    return lutData[(x * lutSize + y) * lutSize + z];
 }
