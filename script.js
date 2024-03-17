@@ -12,15 +12,20 @@ class Color {
 }
 
 // Global variable for LUT data
+// TODO: This should be encapsulated in an object
 let lutData = [];
 let lutSize = 0;
+let lutTitle = "";
 
 // Identifiers for elements
 const uploadInput = document.getElementById('file-upload');
 const canvasRamp = document.getElementById('ramp');
+const ctxRamp = canvasRamp.getContext('2d');
 
 // Event listeners
 uploadInput.addEventListener('change', handleFileUpload);
+
+drawGrid();
 
 function handleFileUpload() {
     const file = uploadInput.files[0];
@@ -43,10 +48,26 @@ function handleFileUpload() {
 function parseLUTData(content) {
     const lines = content.split('\n');
     for (let i = 0; i < lines.length; i++) {
-        // TODO: Read in more things, like size
-        // and make it a bit more stable... too hard-coded.
         const line = lines[i].trim();
-        if (line.length > 0 && line[0] !== '#' && line[0] !== 'L' && line[0] !== 'T' && line[0] !== 'D') {
+
+        if (line.length === 0 || line[0] === '#') continue;
+
+        if (line.split(' ')[0].toLowerCase() === "title") {
+            // Get the title of the LUT
+            const title = line.split(' ').slice(1).join(' ').replace(/"/g, '');
+            console.log("LUT Title: " + title);
+            continue;
+        }
+
+        // Check if this is the line for size
+        // using toLowerCase in case the file has different capitalization
+        if (line.split(' ')[0].toLowerCase() === "lut_3d_size") {
+            lutSize = parseInt(line.split(' ')[1]);
+            continue;
+        }
+
+        // Check if this is a line for LUT data
+        if (line[0] !== 'L' && line[0] !== 'T' && line[0] !== 'D') {
             const values = line.split(' ');
             const r = parseFloat(values[0]);
             const g = parseFloat(values[1]);
@@ -60,6 +81,7 @@ function parseLUTData(content) {
     return lutData;
 }
 
+// TODO: cache the curve data until new upload
 function displayLUT() {
     const ctx = canvasRamp.getContext('2d');
     const width = canvasRamp.width;
@@ -68,29 +90,58 @@ function displayLUT() {
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
 
-    for (let i = 0; i <= 255; i += 3) {
+    // Draw grid
+    drawGrid();
+
+    const xCoords = [];
+    const yRCoords = [];
+    const yGCoords = [];
+    const yBCoords = [];
+
+    for (let i = 0; i <= 255; i += 255 / lutSize) {
         const output = findLUTOutput(new Color(i / 255, i / 255, i / 255));
         const x = i * (width / 256);
         const yR = height - output.r * height;
         const yG = height - output.g * height;
         const yB = height - output.b * height;
 
-        ctx.fillStyle = 'red';
-        ctx.beginPath();
-        ctx.arc(x, yR, 2, 0, 2 * Math.PI);
-        ctx.fill();
-        // ctx.fillRect(x, yR, 4, 4);
-        ctx.fillStyle = 'green';
-        ctx.beginPath();
-        ctx.arc(x, yG, 2, 0, 2 * Math.PI);
-        ctx.fill();
-        // ctx.fillRect(x, yG, 4, 4);
-        ctx.fillStyle = 'blue';
-        ctx.beginPath();
-        ctx.arc(x, yB, 2, 0, 2 * Math.PI);
-        ctx.fill();
-        // ctx.fillRect(x, yB, 4, 4);
+        xCoords.push(x);
+        yRCoords.push(yR);
+        yGCoords.push(yG);
+        yBCoords.push(yB);
     }
+
+    // Red curve
+    ctx.beginPath();
+    ctx.moveTo(0, yRCoords[0]);
+    for (let i = 1; i < xCoords.length; i++) {
+        ctx.lineTo(xCoords[i], yRCoords[i]);
+        ctx.arc(xCoords[i], yRCoords[i], 3, 0, 2 * Math.PI, false);
+    }
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Green curve
+    ctx.beginPath();
+    ctx.moveTo(0, yGCoords[0]);
+    for (let i = 1; i < xCoords.length; i++) {
+        ctx.lineTo(xCoords[i], yGCoords[i]);
+        ctx.arc(xCoords[i], yGCoords[i], 3, 0, 2 * Math.PI, false);
+    }
+    ctx.strokeStyle = 'green';
+    ctx.stroke();
+
+    // Blue curve
+    ctx.beginPath();
+    ctx.moveTo(0, yBCoords[0]);
+    for (let i = 1; i < xCoords.length; i++) {
+        ctx.lineTo(xCoords[i], yBCoords[i]);
+        ctx.arc(xCoords[i], yBCoords[i], 3, 0, 2 * Math.PI, false);
+    }
+    ctx.strokeStyle = 'blue';
+    ctx.stroke();
+
 }
 
 function findLUTOutput(input) {
@@ -148,4 +199,32 @@ function trilerp(x, y, z, channel) {
 
     // Along z-axis
     return pxy0 + (pxy1 - pxy0) * w;
+}
+
+function drawGrid() {
+    const width = canvasRamp.width;
+    const height = canvasRamp.height;
+
+    const steps = 4;
+    const stepSizeH = width / steps;
+    const stepSizeV = height / steps;
+
+    ctxRamp.beginPath();
+    ctxRamp.moveTo(0, height);
+    ctxRamp.lineTo(width, 0);
+
+    ctxRamp.moveTo(stepSizeH, 0);
+    for (let i = 1; i < steps; i++) {
+        ctxRamp.lineTo(stepSizeH * i, height);
+        ctxRamp.moveTo(stepSizeH * (i + 1), 0);
+    }
+
+    ctxRamp.moveTo(0, stepSizeV);
+    for (let i = 1; i < steps; i++) {
+        ctxRamp.lineTo(width, stepSizeV * i);
+        ctxRamp.moveTo(0, stepSizeV * (i + 1));
+    }
+
+    ctxRamp.strokeStyle = "rgba(255,255,255,0.1)";
+    ctxRamp.stroke();
 }
