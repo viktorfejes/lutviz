@@ -361,7 +361,6 @@ drawGrid();
 function calcCheckerColors(checker) {
     checker.forEach((el, index) => {
         el.style.backgroundColor = `rgb(${findLUTOutput(checkerLookup[index].divideScalar(255)).multiplyScalar(255).toArray().join(',')})`;
-        console.log(findLUTOutput(checkerLookup[index].divideScalar(255)).multiplyScalar(255).toArray().join(',') + " " + checkerLookup[index].toArray().join(','));
     });
 }
 
@@ -453,7 +452,7 @@ function displayLUT() {
     const yBCoords = [];
     const yLCoords = [];
 
-    for (let i = 0; i <= 255; i += 255 / 255) {
+    for (let i = 0; i <= 255; i += 255 / lutSize) {
         const output = findLUTOutput(new Color(i / 255, i / 255, i / 255));
         const x = i * (width / 256);
         const yR = height - output.r * height;
@@ -466,6 +465,20 @@ function displayLUT() {
         yBCoords.push(yB);
         yLCoords.push(height - output.getLuminance() * height);
     }
+
+    // TEMP LOOP
+    const verts = [];
+    const interval = lutSize / 20;
+    for (let bIndex = 0; bIndex < lutSize; bIndex += interval) {
+        for (let gIndex = 0; gIndex < lutSize; gIndex += interval) {
+            for (let rIndex = 0; rIndex < lutSize; rIndex += interval) {
+                const index = Math.floor(rIndex) * lutSize * lutSize + Math.floor(gIndex) * lutSize + Math.floor(bIndex);
+                const color = lutData[index];
+                verts.push({ r: color.r, g: color.g, b: color.b });
+            }
+        }
+    }
+    console.log(verts);
 
     // TODO: can be a single loop
     // maybe even along with the above for loop...
