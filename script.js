@@ -257,13 +257,53 @@ class Color {
         return Color.equal(a, b);
     }
 
+    // TODO: this is not as simple as this.
+    // will have to work on this a bit more later...
+    getLuminance() {
+        return 0.299 * this.r + 0.587 * this.g + 0.114 * this.b;
+    }
+
 }
+
+const checkerLookup = [
+    new Color(115, 82, 68),
+    new Color(194, 150, 130),
+    new Color(98, 122, 157),
+    new Color(87, 108, 67),
+    new Color(133, 128, 177),
+    new Color(103, 189, 170),
+    new Color(214, 126, 44),
+    new Color(80, 91, 166),
+    new Color(193, 90, 99),
+    new Color(94, 60, 108),
+    new Color(157, 188, 64),
+    new Color(224, 163, 46),
+    new Color(56, 61, 150),
+    new Color(70, 148, 73),
+    new Color(175, 54, 60),
+    new Color(231, 199, 31),
+    new Color(187, 86, 149),
+    new Color(8, 133, 161),
+    new Color(243, 243, 242),
+    new Color(200, 200, 200),
+    new Color(160, 160, 160),
+    new Color(122, 122, 121),
+    new Color(85, 85, 85),
+    new Color(52, 52, 52),
+];
 
 // Global variable for LUT data
 // TODO: This should be encapsulated in an object
 let lutData = [];
 let lutSize = 0;
 let lutTitle = "";
+
+const channels = {
+    l: true,
+    r: true,
+    g: true,
+    b: true,
+}
 
 // Identifiers for elements
 const uploadInput = document.getElementById('file-upload');
@@ -273,6 +313,36 @@ const canvasPreview = document.getElementById('preview');
 const ctxPreview = canvasPreview.getContext('2d');
 const elTitle = document.getElementById('lut-title');
 const elSize = document.getElementById('lut-size');
+const colorPatches = document.querySelectorAll('.color-patch');
+
+const luma_btn = document.getElementById('luma-button');
+const red_btn = document.getElementById('red-button');
+const green_btn = document.getElementById('green-button');
+const blue_btn = document.getElementById('blue-button');
+
+luma_btn.addEventListener('click', () => {
+    channels.l = !channels.l;
+    luma_btn.classList.toggle('active');
+    displayLUT();
+});
+
+red_btn.addEventListener('click', () => {
+    channels.r = !channels.r;
+    red_btn.classList.toggle('active');
+    displayLUT();
+});
+
+green_btn.addEventListener('click', () => {
+    channels.g = !channels.g;
+    green_btn.classList.toggle('active');
+    displayLUT();
+});
+
+blue_btn.addEventListener('click', () => {
+    channels.b = !channels.b;
+    blue_btn.classList.toggle('active');
+    displayLUT();
+});
 
 const testImage = new Image();
 testImage.src = 'assets/images/lut_test_fullgradient.png';
@@ -287,6 +357,13 @@ canvasRamp.addEventListener('click', displayCoordinates);
 function displayCoordinates() { }
 
 drawGrid();
+
+function calcCheckerColors(checker) {
+    checker.forEach((el, index) => {
+        el.style.backgroundColor = `rgb(${findLUTOutput(checkerLookup[index].divideScalar(255)).multiplyScalar(255).toArray().join(',')})`;
+        console.log(findLUTOutput(checkerLookup[index].divideScalar(255)).multiplyScalar(255).toArray().join(',') + " " + checkerLookup[index].toArray().join(','));
+    });
+}
 
 function handleFileUpload() {
     const file = uploadInput.files[0];
@@ -310,9 +387,9 @@ function handleFileUpload() {
             for (let i = 0; i < imgData.length; i += 4) {
                 const color = new Color(imgData[i] / 255, imgData[i + 1] / 255, imgData[i + 2] / 255);
                 const output = findLUTOutput(color);
-                imgData[i] = output.b * 255;
+                imgData[i] = output.r * 255;
                 imgData[i + 1] = output.g * 255;
-                imgData[i + 2] = output.r * 255;
+                imgData[i + 2] = output.b * 255;
             }
             ctxPreview.putImageData(new ImageData(imgData, canvasPreview.width, canvasPreview.height), 0, 0);
 
@@ -353,6 +430,7 @@ function parseLUTData(content) {
     lutSize = Math.cbrt(lutData.length);
 
     displayLUT();
+    calcCheckerColors(colorPatches);
     return lutData;
 }
 
@@ -366,7 +444,6 @@ function displayLUT() {
     ctx.clearRect(0, 0, width, height);
     ctx.beginPath();
 
-
     // Draw grid
     drawGrid();
 
@@ -374,6 +451,7 @@ function displayLUT() {
     const yRCoords = [];
     const yGCoords = [];
     const yBCoords = [];
+    const yLCoords = [];
 
     for (let i = 0; i <= 255; i += 255 / 255) {
         const output = findLUTOutput(new Color(i / 255, i / 255, i / 255));
@@ -386,39 +464,61 @@ function displayLUT() {
         yRCoords.push(yR);
         yGCoords.push(yG);
         yBCoords.push(yB);
+        yLCoords.push(height - output.getLuminance() * height);
     }
+
+    // TODO: can be a single loop
+    // maybe even along with the above for loop...
 
     // Red curve
-    ctx.beginPath();
-    ctx.moveTo(0, yRCoords[0]);
-    for (let i = 1; i < xCoords.length; i++) {
-        if (yRCoords[i] <= 0) console.log(yRCoords[i]);
-        ctx.lineTo(xCoords[i], yRCoords[i]);
-        // ctx.arc(xCoords[i], yRCoords[i], 3, 0, 2 * Math.PI, false);
+    if (channels.r) {
+        ctx.beginPath();
+        ctx.moveTo(0, yRCoords[0]);
+        for (let i = 1; i < xCoords.length; i++) {
+            if (yRCoords[i] <= 0) console.log(yRCoords[i]);
+            ctx.lineTo(xCoords[i], yRCoords[i]);
+            // ctx.arc(xCoords[i], yRCoords[i], 3, 0, 2 * Math.PI, false);
+        }
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'red';
+        ctx.stroke();
     }
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = 'red';
-    ctx.stroke();
 
     // Green curve
-    ctx.beginPath();
-    ctx.moveTo(0, yGCoords[0]);
-    for (let i = 1; i < xCoords.length; i++) {
-        ctx.lineTo(xCoords[i], yGCoords[i]);
-        // ctx.arc(xCoords[i], yGCoords[i], 3, 0, 2 * Math.PI, false);
+    if (channels.g) {
+        ctx.beginPath();
+        ctx.moveTo(0, yGCoords[0]);
+        for (let i = 1; i < xCoords.length; i++) {
+            ctx.lineTo(xCoords[i], yGCoords[i]);
+            // ctx.arc(xCoords[i], yGCoords[i], 3, 0, 2 * Math.PI, false);
+        }
+        ctx.strokeStyle = 'green';
+        ctx.stroke();
     }
-    ctx.strokeStyle = 'green';
-    ctx.stroke();
 
     // Blue curve
-    ctx.beginPath();
-    ctx.moveTo(0, yBCoords[0]);
-    for (let i = 1; i < xCoords.length; i++) {
-        ctx.lineTo(xCoords[i], yBCoords[i]);
-        // ctx.arc(xCoords[i], yBCoords[i], 3, 0, 2 * Math.PI, false);
+    if (channels.b) {
+        ctx.beginPath();
+        ctx.moveTo(0, yBCoords[0]);
+        for (let i = 1; i < xCoords.length; i++) {
+            ctx.lineTo(xCoords[i], yBCoords[i]);
+            // ctx.arc(xCoords[i], yBCoords[i], 3, 0, 2 * Math.PI, false);
+        }
+        ctx.strokeStyle = 'blue';
+        ctx.stroke();
     }
-    ctx.strokeStyle = 'blue';
-    ctx.stroke();
+
+    // Luminance curve
+    if (channels.l) {
+        ctx.beginPath();
+        ctx.moveTo(0, yLCoords[0]);
+        for (let i = 1; i < xCoords.length; i++) {
+            ctx.lineTo(xCoords[i], yLCoords[i]);
+            // ctx.arc(xCoords[i], yBCoords[i], 3, 0, 2 * Math.PI, false);
+        }
+        ctx.strokeStyle = 'gray';
+        ctx.stroke();
+    }
 
 }
 
@@ -477,6 +577,10 @@ function trilerp(input) {
     return pxy0.lerp(pxy1, w);
 }
 
+function calcCornerIndex(R, G, B, size) {
+    return (B * size * size) + (G * size) + R;
+}
+
 function tetraInterp(input) {
     const matrixT1 = math.matrix([
         [1, 0, 0, 0, 0, 0, 0, 0],
@@ -520,89 +624,94 @@ function tetraInterp(input) {
         [-1, 1, 0, 0, 0, 0, 0, 0]
     ]);
 
+    const R0 = Math.floor(input.r);
+    const G0 = Math.floor(input.g);
+    const B0 = Math.floor(input.b);
 
-    const x_floor = Math.floor(input.b);
-    const y_floor = Math.floor(input.g);
-    const z_floor = Math.floor(input.r);
+    const R1 = Math.ceil(input.r);
+    const G1 = Math.ceil(input.g);
+    const B1 = Math.ceil(input.b);
 
-    const x_ceil = Math.ceil(input.b);
-    const y_ceil = Math.ceil(input.g);
-    const z_ceil = Math.ceil(input.r);
+    const delta_r = (R0 == R1) ? 0.0 : (input.r - R0) / (R1 - R0);
+    const delta_g = (G0 == G1) ? 0.0 : (input.g - G0) / (G1 - G0);
+    const delta_b = (B0 == B1) ? 0.0 : (input.b - B0) / (B1 - B0);
 
-    const delta_x = input.b - x_floor;
-    const delta_y = input.g - y_floor;
-    const delta_z = input.r - z_floor;
-
-    const delta_t = math.matrix([1, delta_x, delta_z, delta_y]);
+    const delta_t = math.matrix([1, delta_b, delta_r, delta_g]);
 
     const Vr = math.matrix([
-        getLUTValue(z_floor, y_floor, x_floor).getChannel(0),
-        getLUTValue(z_floor, y_ceil, x_floor).getChannel(0),
-        getLUTValue(z_ceil, y_floor, x_floor).getChannel(0),
-        getLUTValue(z_ceil, y_ceil, x_floor).getChannel(0),
-        getLUTValue(z_floor, y_floor, x_ceil).getChannel(0),
-        getLUTValue(z_floor, y_ceil, x_ceil).getChannel(0),
-        getLUTValue(z_ceil, y_floor, x_ceil).getChannel(0),
-        getLUTValue(z_ceil, y_ceil, x_ceil).getChannel(0)
+        lutData[calcCornerIndex(R0, G0, B0, lutSize)].getChannel(0),
+        lutData[calcCornerIndex(R0, G1, B0, lutSize)].getChannel(0),
+        lutData[calcCornerIndex(R1, G0, B0, lutSize)].getChannel(0),
+        lutData[calcCornerIndex(R1, G1, B0, lutSize)].getChannel(0),
+        lutData[calcCornerIndex(R0, G0, B1, lutSize)].getChannel(0),
+        lutData[calcCornerIndex(R0, G1, B1, lutSize)].getChannel(0),
+        lutData[calcCornerIndex(R1, G0, B1, lutSize)].getChannel(0),
+        lutData[calcCornerIndex(R1, G1, B1, lutSize)].getChannel(0),
     ]);
 
     const Vg = math.matrix([
-        getLUTValue(z_floor, y_floor, x_floor).getChannel(1),
-        getLUTValue(z_floor, y_ceil, x_floor).getChannel(1),
-        getLUTValue(z_ceil, y_floor, x_floor).getChannel(1),
-        getLUTValue(z_ceil, y_ceil, x_floor).getChannel(1),
-        getLUTValue(z_floor, y_floor, x_ceil).getChannel(1),
-        getLUTValue(z_floor, y_ceil, x_ceil).getChannel(1),
-        getLUTValue(z_ceil, y_floor, x_ceil).getChannel(1),
-        getLUTValue(z_ceil, y_ceil, x_ceil).getChannel(1)
+        lutData[calcCornerIndex(R0, G0, B0, lutSize)].getChannel(1),
+        lutData[calcCornerIndex(R0, G1, B0, lutSize)].getChannel(1),
+        lutData[calcCornerIndex(R1, G0, B0, lutSize)].getChannel(1),
+        lutData[calcCornerIndex(R1, G1, B0, lutSize)].getChannel(1),
+        lutData[calcCornerIndex(R0, G0, B1, lutSize)].getChannel(1),
+        lutData[calcCornerIndex(R0, G1, B1, lutSize)].getChannel(1),
+        lutData[calcCornerIndex(R1, G0, B1, lutSize)].getChannel(1),
+        lutData[calcCornerIndex(R1, G1, B1, lutSize)].getChannel(1),
     ]);
 
     const Vb = math.matrix([
-        getLUTValue(z_floor, y_floor, x_floor).getChannel(2),
-        getLUTValue(z_floor, y_ceil, x_floor).getChannel(2),
-        getLUTValue(z_ceil, y_floor, x_floor).getChannel(2),
-        getLUTValue(z_ceil, y_ceil, x_floor).getChannel(2),
-        getLUTValue(z_floor, y_floor, x_ceil).getChannel(2),
-        getLUTValue(z_floor, y_ceil, x_ceil).getChannel(2),
-        getLUTValue(z_ceil, y_floor, x_ceil).getChannel(2),
-        getLUTValue(z_ceil, y_ceil, x_ceil).getChannel(2)
+        lutData[calcCornerIndex(R0, G0, B0, lutSize)].getChannel(2),
+        lutData[calcCornerIndex(R0, G1, B0, lutSize)].getChannel(2),
+        lutData[calcCornerIndex(R1, G0, B0, lutSize)].getChannel(2),
+        lutData[calcCornerIndex(R1, G1, B0, lutSize)].getChannel(2),
+        lutData[calcCornerIndex(R0, G0, B1, lutSize)].getChannel(2),
+        lutData[calcCornerIndex(R0, G1, B1, lutSize)].getChannel(2),
+        lutData[calcCornerIndex(R1, G0, B1, lutSize)].getChannel(2),
+        lutData[calcCornerIndex(R1, G1, B1, lutSize)].getChannel(2),
     ]);
 
-    let rR, rG, rB;
-
-    if (delta_x > delta_z && delta_z > delta_y) {
+    // Determine which tetrahedron to use
+    let result_red, result_green, result_blue;
+    if (delta_b > delta_r && delta_r > delta_g) {
+        // t1
         const result = math.multiply(delta_t, matrixT1);
-        rR = math.multiply(result, Vr);
-        rG = math.multiply(result, Vg);
-        rB = math.multiply(result, Vb);
-    } else if (delta_x > delta_y && delta_y > delta_z) {
+        result_red = math.multiply(result, Vr);
+        result_green = math.multiply(result, Vg);
+        result_blue = math.multiply(result, Vb);
+    } else if (delta_b > delta_g && delta_g > delta_r) {
+        // t2
         const result = math.multiply(delta_t, matrixT2);
-        rR = math.multiply(result, Vr);
-        rG = math.multiply(result, Vg);
-        rB = math.multiply(result, Vb);
-    } else if (delta_y > delta_x && delta_x > delta_z) {
+        result_red = math.multiply(result, Vr);
+        result_green = math.multiply(result, Vg);
+        result_blue = math.multiply(result, Vb);
+    } else if (delta_g > delta_b && delta_b > delta_r) {
+        // t3
         const result = math.multiply(delta_t, matrixT3);
-        rR = math.multiply(result, Vr);
-        rG = math.multiply(result, Vg);
-        rB = math.multiply(result, Vb);
-    } else if (delta_z > delta_x && delta_x > delta_y) {
+        result_red = math.multiply(result, Vr);
+        result_green = math.multiply(result, Vg);
+        result_blue = math.multiply(result, Vb);
+    } else if (delta_r > delta_b && delta_b > delta_g) {
+        // t4
         const result = math.multiply(delta_t, matrixT4);
-        rR = math.multiply(result, Vr);
-        rG = math.multiply(result, Vg);
-        rB = math.multiply(result, Vb);
-    } else if (delta_z > delta_y && delta_y > delta_x) {
+        result_red = math.multiply(result, Vr);
+        result_green = math.multiply(result, Vg);
+        result_blue = math.multiply(result, Vb);
+    } else if (delta_r > delta_g && delta_g > delta_b) {
+        // t5
         const result = math.multiply(delta_t, matrixT5);
-        rR = math.multiply(result, Vr);
-        rG = math.multiply(result, Vg);
-        rB = math.multiply(result, Vb);
+        result_red = math.multiply(result, Vr);
+        result_green = math.multiply(result, Vg);
+        result_blue = math.multiply(result, Vb);
     } else {
+        // t6
         const result = math.multiply(delta_t, matrixT6);
-        rR = math.multiply(result, Vr);
-        rG = math.multiply(result, Vg);
-        rB = math.multiply(result, Vb);
+        result_red = math.multiply(result, Vr);
+        result_green = math.multiply(result, Vg);
+        result_blue = math.multiply(result, Vb);
     }
 
-    return new Color(rR, rG, rB);
+    return new Color(result_red, result_green, result_blue);
 }
 
 function drawGrid() {
@@ -635,6 +744,6 @@ function drawGrid() {
     ctxRamp.stroke();
 }
 
-function getLUTValue(x, y, z) {
-    return lutData[(x * lutSize + y) * lutSize + z];
+function calcLuminance(color) {
+    return 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
 }

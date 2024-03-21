@@ -93,19 +93,27 @@ canvas#ramp {
     font-weight: 800;
 }
 
-button.luma {
+button.luma,
+button.red,
+button.green,
+button.blue {
+    border: 1px solid #474747;
+    background-color: transparent;
+}
+
+button.luma.active {
     background-color: #dad1d1;
 }
 
-button.red {
+button.red.active {
     background-color: #ff0802;
 }
 
-button.green {
+button.green.active {
     background-color: #08c803;
 }
 
-button.blue {
+button.blue.active {
     background-color: #180ede;
 }
 
@@ -121,4 +129,117 @@ button.blue {
     font-size: 1rem;
     color: #ddd;
     margin: 0;
+}
+
+.color-checker {
+    max-width: 40rem;
+    background-color: #000;
+    border-radius: 2rem;
+    padding: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.color-checker .color-patch {
+    width: calc(100% / 6 - 1rem);
+    padding-top: calc(100% / 6 - 1rem);
+}
+
+.color-checker #color-1 {
+    background-color: rgb(115, 82, 68);
+}
+
+.color-checker #color-2 {
+    background-color: rgb(194, 150, 130);
+}
+
+.color-checker #color-3 {
+    background-color: rgb(98, 122, 157);
+}
+
+.color-checker #color-4 {
+    background-color: rgb(87, 108, 67);
+}
+
+.color-checker #color-5 {
+    background-color: rgb(133, 128, 177);
+}
+
+.color-checker #color-6 {
+    background-color: rgb(103, 189, 170);
+}
+
+.color-checker #color-7 {
+    background-color: rgb(214, 126, 44);
+}
+
+.color-checker #color-8 {
+    background-color: rgb(80, 91, 166);
+}
+
+.color-checker #color-9 {
+    background-color: rgb(193, 90, 99);
+}
+
+.color-checker #color-10 {
+    background-color: rgb(94, 60, 108);
+}
+
+.color-checker #color-11 {
+    background-color: rgb(157, 188, 64);
+}
+
+.color-checker #color-12 {
+    background-color: rgb(224, 163, 46);
+}
+
+.color-checker #color-13 {
+    background-color: rgb(56, 61, 150);
+}
+
+.color-checker #color-14 {
+    background-color: rgb(70, 148, 73);
+}
+
+.color-checker #color-15 {
+    background-color: rgb(175, 54, 60);
+}
+
+.color-checker #color-16 {
+    background-color: rgb(231, 199, 31);
+}
+
+.color-checker #color-17 {
+    background-color: rgb(187, 86, 149);
+}
+
+.color-checker #color-18 {
+    background-color: rgb(8, 133, 161);
+}
+
+.color-checker #color-19 {
+    background-color: rgb(243, 243, 242);
+}
+
+.color-checker #color-20 {
+    background-color: rgb(200, 200, 200);
+}
+
+.color-checker #color-21 {
+    background-color: rgb(160, 160, 160);
+}
+
+.color-checker #color-22 {
+    background-color: rgb(122, 122, 121);
+}
+
+.color-checker #color-23 {
+    background-color: rgb(85, 85, 85);
+}
+
+.color-checker #color-24 {
+    background-color: rgb(52, 52, 52);
 }
