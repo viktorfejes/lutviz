@@ -1,10 +1,74 @@
+@import url("normalize.css");
+
+:root {
+    --text-color-1: #f0f0f0;
+    --text-color-2: #afafaf;
+    --background-color: #060606;
+    --panel-bg-color: #1c1c1c;
+    --border-radius: 2rem;
+    --padding: 2rem;
+}
+
 body {
     font-family: "Inter", sans-serif;
-    background-color: #2b2b2b;
+    color: var(--text-color-1);
+    background-color: var(--background-color);
+}
+
+.container {
+    width: 100%;
+    display: flex;
+}
+
+.main-inner {
+    padding: var(--padding);
+    /* display: flex; */
+}
+
+.row {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.panel {
+    border-radius: var(--border-radius);
+    background-color: var(--panel-bg-color);
+    border: 1px solid var(--panel-bg-color);
+    overflow: hidden;
+}
+
+.infobox {
+    padding: var(--padding);
+}
+
+.infobox #lut-name {
+    margin: 0;
+}
+
+.infobox #lut-size,
+.infobox #lut-domain {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+.infobox .author,
+.infobox .size {
+    font-size: 0.825rem;
+    font-weight: 500;
+    color: var(--text-color-2);
+    margin: 0.2rem 0 2rem 0;
+}
+
+.infobox .size:last-child {
+    margin-bottom: 0;
 }
 
 .ramp {
     width: 840px;
+    overflow: hidden;
 }
 
 canvas#ramp {
@@ -66,7 +130,7 @@ canvas#ramp {
 
 .block-title {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     padding: 1rem;
     border: 1px solid #0d0d0d;
@@ -76,10 +140,10 @@ canvas#ramp {
 }
 
 .block-title h2 {
-    font-weight: 400;
+    font-weight: 500;
     font-size: 1rem;
-    text-transform: uppercase;
-    margin: 0;
+    /* text-transform: uppercase; */
+    margin: 0 0 0 1rem;
     color: #ddd;
 }
 
@@ -117,20 +181,6 @@ button.blue.active {
     background-color: #180ede;
 }
 
-.infobox {}
-
-.infobox #lut-title {
-    font-size: 1.5rem;
-    color: #ddd;
-    margin: 0;
-}
-
-.infobox #lut-size {
-    font-size: 1rem;
-    color: #ddd;
-    margin: 0;
-}
-
 .color-checker {
     max-width: 40rem;
     background-color: #000;
@@ -144,102 +194,135 @@ button.blue.active {
 }
 
 .color-checker .color-patch {
+    display: flex;
     width: calc(100% / 6 - 1rem);
-    padding-top: calc(100% / 6 - 1rem);
+    aspect-ratio: 1/1;
+    /* TODO: we might need a fallback for aspect-ratio */
+    /* padding-top: calc(100% / 6 - 1rem); */
 }
 
-.color-checker #color-1 {
+.color-patch .before,
+.color-patch .after {
+    width: 50%;
+    height: 100%;
+}
+
+.color-patch#color-1 .before,
+.color-patch#color-1 .after {
     background-color: rgb(115, 82, 68);
 }
 
-.color-checker #color-2 {
+.color-patch#color-2 .before,
+.color-patch#color-2 .after {
     background-color: rgb(194, 150, 130);
 }
 
-.color-checker #color-3 {
+.color-patch#color-3 .before,
+.color-patch#color-3 .after {
     background-color: rgb(98, 122, 157);
 }
 
-.color-checker #color-4 {
+.color-patch#color-4 .before,
+.color-patch#color-4 .after {
     background-color: rgb(87, 108, 67);
 }
 
-.color-checker #color-5 {
+.color-patch#color-5 .before,
+.color-patch#color-5 .after {
     background-color: rgb(133, 128, 177);
 }
 
-.color-checker #color-6 {
+.color-patch#color-6 .before,
+.color-patch#color-6 .after {
     background-color: rgb(103, 189, 170);
 }
 
-.color-checker #color-7 {
+.color-patch#color-7 .before,
+.color-patch#color-7 .after {
     background-color: rgb(214, 126, 44);
 }
 
-.color-checker #color-8 {
+.color-patch#color-8 .before,
+.color-patch#color-8 .after {
     background-color: rgb(80, 91, 166);
 }
 
-.color-checker #color-9 {
+.color-patch#color-9 .before,
+.color-patch#color-9 .after {
     background-color: rgb(193, 90, 99);
 }
 
-.color-checker #color-10 {
+.color-patch#color-10 .before,
+.color-patch#color-10 .after {
     background-color: rgb(94, 60, 108);
 }
 
-.color-checker #color-11 {
+.color-patch#color-11 .before,
+.color-patch#color-11 .after {
     background-color: rgb(157, 188, 64);
 }
 
-.color-checker #color-12 {
+.color-patch#color-12 .before,
+.color-patch#color-12 .after {
     background-color: rgb(224, 163, 46);
 }
 
-.color-checker #color-13 {
+.color-patch#color-13 .before,
+.color-patch#color-13 .after {
     background-color: rgb(56, 61, 150);
 }
 
-.color-checker #color-14 {
+.color-patch#color-14 .before,
+.color-patch#color-14 .after {
     background-color: rgb(70, 148, 73);
 }
 
-.color-checker #color-15 {
+.color-patch#color-15 .before,
+.color-patch#color-15 .after {
     background-color: rgb(175, 54, 60);
 }
 
-.color-checker #color-16 {
+.color-patch#color-16 .before,
+.color-patch#color-16 .after {
     background-color: rgb(231, 199, 31);
 }
 
-.color-checker #color-17 {
+.color-patch#color-17 .before,
+.color-patch#color-17 .after {
     background-color: rgb(187, 86, 149);
 }
 
-.color-checker #color-18 {
+.color-patch#color-18 .before,
+.color-patch#color-18 .after {
     background-color: rgb(8, 133, 161);
 }
 
-.color-checker #color-19 {
+.color-patch#color-19 .before,
+.color-patch#color-19 .after {
     background-color: rgb(243, 243, 242);
 }
 
-.color-checker #color-20 {
+.color-patch#color-20 .before,
+.color-patch#color-20 .after {
     background-color: rgb(200, 200, 200);
 }
 
-.color-checker #color-21 {
+.color-patch#color-21 .before,
+.color-patch#color-21 .after {
     background-color: rgb(160, 160, 160);
 }
 
-.color-checker #color-22 {
+.color-patch#color-22 .before,
+.color-patch#color-22 .after {
     background-color: rgb(122, 122, 121);
 }
 
-.color-checker #color-23 {
+.color-patch#color-23 .before,
+.color-patch#color-23 .after {
     background-color: rgb(85, 85, 85);
 }
 
-.color-checker #color-24 {
+.color-patch#color-24 .before,
+.color-patch#color-24 .after {
     background-color: rgb(52, 52, 52);
 }

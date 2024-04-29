@@ -12,7 +12,6 @@ const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
 });
 renderer.setSize(canvas.width, canvas.height);
-document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enablePan = false;
