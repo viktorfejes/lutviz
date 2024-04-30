@@ -196,7 +196,7 @@ button.blue.active {
 .color-checker .color-patch {
     display: flex;
     width: calc(100% / 6 - 1rem);
-    aspect-ratio: 1/1;
+    aspect-ratio: 1.0;
     /* TODO: we might need a fallback for aspect-ratio */
     /* padding-top: calc(100% / 6 - 1rem); */
 }

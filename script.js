@@ -1,3 +1,6 @@
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
 class Color {
     constructor(r, g, b) {
         this.r = r;
@@ -292,7 +295,10 @@ const checkerLookup = [
     new Color(52, 52, 52),
 ];
 
+// Settings, constants...
 const TAU = 2 * Math.PI;
+const POINT_BASE_COUNT = 16;
+const POINT_SIZE = 0.2;
 
 const LOG_LEVEL = Object.freeze({
     ERROR: 0,
@@ -324,8 +330,91 @@ function log(msg, level) {
     }
 }
 
-function clear_canvas() {
+function init_threejs() {
+    state.threejs.scene = new THREE.Scene();
+    state.threejs.camera = new THREE.PerspectiveCamera(30, canvas_cube.width / canvas_cube.height, 0.1, 1000);
 
+    state.threejs.renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        canvas: canvas_cube,
+    });
+    state.threejs.renderer.setSize(canvas_cube.width, canvas_cube.height);
+
+    state.threejs.controls = new OrbitControls(state.threejs.camera, state.threejs.renderer.domElement);
+    state.threejs.controls.enablePan = false;
+
+    const point_count = POINT_BASE_COUNT * POINT_BASE_COUNT * POINT_BASE_COUNT;
+    const pointSize = POINT_SIZE;
+    const offset = pointSize / 16; // NOTE: I'm not sure why 16 works and not 2...
+    const scaleFactor = 1 + offset;
+    const p0 = 0 * scaleFactor - offset;
+    const p1 = 1 * scaleFactor + offset;
+
+    // Drawing the cube's cage
+    const lineGeo = new THREE.BufferGeometry();
+    const linePos = new Float32Array([
+        // Bottom Square
+        p0, p0, p0, p1, p0, p0, // Line 1
+        p1, p0, p0, p1, p0, p1, // Line 2
+        p1, p0, p1, p0, p0, p1, // Line 3
+        p0, p0, p1, p0, p0, p0, // Line 4
+
+        // Top Square (same as bottom but with z = 1)
+        p0, p1, p0, p1, p1, p0, // Line 5
+        p1, p1, p0, p1, p1, p1, // Line 6
+        p1, p1, p1, p0, p1, p1, // Line 7
+        p0, p1, p1, p0, p1, p0, // Line 8
+
+        // Connecting Vertical Lines
+        p0, p0, p0, p0, p1, p0, // Line 9 
+        p1, p0, p0, p1, p1, p0, // Line 10
+        p1, p0, p1, p1, p1, p1, // Line 11
+        p0, p0, p1, p0, p1, p1  // Line 12
+    ]);
+    lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePos, 3));
+    lineGeo.setAttribute('color', new THREE.Float32BufferAttribute(linePos, 3));
+    const lineMat = new THREE.LineBasicMaterial({ vertexColors: true });
+    const cubeCage = new THREE.LineSegments(lineGeo, lineMat);
+    state.threejs.scene.add(cubeCage);
+
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(point_count * 3);
+    const colors = new Float32Array(point_count * 3);
+    const step = 1 / (POINT_BASE_COUNT - 1);
+    let index = 0;
+    for (let r = 0; r < POINT_BASE_COUNT; r++) {
+        for (let g = 0; g < POINT_BASE_COUNT; g++) {
+            for (let b = 0; b < POINT_BASE_COUNT; b++) {
+                positions[index * 3] = r * step;
+                positions[index * 3 + 1] = g * step;
+                positions[index * 3 + 2] = b * step;
+
+                colors[index * 3] = r * step;
+                colors[index * 3 + 1] = g * step;
+                colors[index * 3 + 2] = b * step;
+
+                index++;
+            }
+        }
+    }
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    const material = new THREE.PointsMaterial({ vertexColors: true, size: pointSize });
+    const points = new THREE.Points(geometry, material);
+    // Add a name so it's easier to get later
+    points.name = "lut_points";
+    state.threejs.scene.add(points);
+
+    state.threejs.camera.position.z = 5;
+    cubeCage.position.set(cubeCage.position.x - 0.5, cubeCage.position.y - 0.5, cubeCage.position.z - 0.5);
+    points.position.set(points.position.x - 0.5, points.position.y - 0.5, points.position.z - 0.5);
+}
+
+function threejs_animate() {
+    requestAnimationFrame(threejs_animate);
+    state.threejs.controls.update();
+    state.threejs.renderer.render(state.threejs.scene, state.threejs.camera);
 }
 
 function draw_canvas_grid(canvas, color, stepsH, stepsV = -1, diagonal = true) {
@@ -367,6 +456,12 @@ function draw_canvas_grid(canvas, color, stepsH, stepsV = -1, diagonal = true) {
 }
 
 let state = {
+    threejs: {
+        scene: {},
+        camera: {},
+        controls: {},
+        renderer: {}
+    },
     file: {
         is_changed: true
     },
@@ -384,6 +479,8 @@ const file_input = document.getElementById("file-input");
 
 // Canvas - for LUT graph/ramp
 const canvas_graph = document.getElementById("canvas-graph");
+// Canvas - for threejs
+const canvas_cube = document.getElementById("canvas-cube");
 
 // LUT infobox
 const info_name = document.getElementById("lut-name");
@@ -394,6 +491,8 @@ const info_domain = document.getElementById("lut-domain");
 const color_patches = document.querySelectorAll('.color-patch');
 
 document.addEventListener("DOMContentLoaded", (e) => {
+    init_threejs();
+    threejs_animate();
     draw_canvas_grid(canvas_graph, [64, 51, 15], 4);
 });
 
@@ -485,6 +584,9 @@ async function display_lut_data() {
 
     // Apply LUT to color patches in color checker
     await display_lut_color_patches();
+
+    // Mutate the 3D cube
+    await display_lut_cube();
 }
 
 async function display_lut_graph() {
@@ -521,20 +623,6 @@ async function display_lut_graph() {
             yLCoords.push(height - output.getLuminance() * height);
         }
 
-        // TEMP LOOP
-        // NOTE: this might have been for the 3d representation?
-        // const verts = [];
-        // const interval = state.lut.size / 20;
-        // for (let bIndex = 0; bIndex < state.lut.size; bIndex += interval) {
-        //     for (let gIndex = 0; gIndex < state.lut.size; gIndex += interval) {
-        //         for (let rIndex = 0; rIndex < state.lut.size; rIndex += interval) {
-        //             const index = Math.floor(rIndex) * state.lut.size * state.lut.size + Math.floor(gIndex) * state.lut.size + Math.floor(bIndex);
-        //             const color = state.lut.data[index];
-        //             verts.push({ r: color.r, g: color.g, b: color.b });
-        //         }
-        //     }
-        // }
-
         // TODO: can be a single loop
         // maybe even along with the above for loop...
 
@@ -543,7 +631,6 @@ async function display_lut_graph() {
             ctx.beginPath();
             ctx.moveTo(0, yRCoords[0]);
             for (let i = 1; i < xCoords.length; i++) {
-                if (yRCoords[i] <= 0) console.log(yRCoords[i]);
                 ctx.lineTo(xCoords[i], yRCoords[i]);
                 // ctx.arc(xCoords[i], yRCoords[i], 3, 0, 2 * Math.PI, false);
             }
@@ -597,10 +684,49 @@ async function display_lut_color_patches() {
         log("Updating color patches...", LOG_LEVEL.DEBUG);
         color_patches.forEach((el, index) => {
             const after_patch = el.querySelector(".after");
-            // after_patch.style.backgroundColor = "red";
-
             after_patch.style.backgroundColor = `rgb(${find_lut_output(checkerLookup[index].divideScalar(255)).multiplyScalar(255).toArray().join(',')})`;
         });
+
+        resolve();
+    });
+}
+
+async function display_lut_cube() {
+    return new Promise((resolve) => {
+        log("Displaying the 3D LUT cube...", LOG_LEVEL.DEBUG);
+
+        const target_size = POINT_BASE_COUNT;
+        const geo = state.threejs.scene.getObjectByName("lut_points").geometry;
+        const pos = geo.attributes.position.array;
+        const col = geo.attributes.color.array;
+
+        for (let r = 0; r < target_size; r++) {
+            for (let g = 0; g < target_size; g++) {
+                for (let b = 0; b < target_size; b++) {
+                    const index = (r * target_size * target_size + g * target_size + b) * 3;
+
+                    // Calculate the normalized input color
+                    const input_color = new Color(
+                        r / (target_size - 1),
+                        g / (target_size - 1),
+                        b / (target_size - 1)
+                    );
+
+                    const out_color = find_lut_output(input_color);
+
+                    pos[index] = out_color.r;
+                    pos[index + 1] = out_color.g;
+                    pos[index + 2] = out_color.b;
+
+                    col[index] = out_color.r;
+                    col[index + 1] = out_color.g;
+                    col[index + 2] = out_color.b;
+                }
+            }
+        }
+
+        geo.attributes.position.needsUpdate = true;
+        geo.attributes.color.needsUpdate = true;
 
         resolve();
     });
@@ -781,18 +907,18 @@ function displayLUT() {
     }
 
     // TEMP LOOP
-    const verts = [];
-    const interval = lutSize / 20;
-    for (let bIndex = 0; bIndex < lutSize; bIndex += interval) {
-        for (let gIndex = 0; gIndex < lutSize; gIndex += interval) {
-            for (let rIndex = 0; rIndex < lutSize; rIndex += interval) {
-                const index = Math.floor(rIndex) * lutSize * lutSize + Math.floor(gIndex) * lutSize + Math.floor(bIndex);
-                const color = lutData[index];
-                verts.push({ r: color.r, g: color.g, b: color.b });
-            }
-        }
-    }
-    console.log(verts);
+    // const verts = [];
+    // const interval = lutSize / 20;
+    // for (let bIndex = 0; bIndex < lutSize; bIndex += interval) {
+    //     for (let gIndex = 0; gIndex < lutSize; gIndex += interval) {
+    //         for (let rIndex = 0; rIndex < lutSize; rIndex += interval) {
+    //             const index = Math.floor(rIndex) * lutSize * lutSize + Math.floor(gIndex) * lutSize + Math.floor(bIndex);
+    //             const color = lutData[index];
+    //             verts.push({ r: color.r, g: color.g, b: color.b });
+    //         }
+    //     }
+    // }
+    // console.log(verts);
 
     // TODO: can be a single loop
     // maybe even along with the above for loop...
@@ -881,14 +1007,14 @@ function trilerp(input) {
     const w = (z_floor == z_ceil) ? 0.0 : (input.r - z_floor) / (z_ceil - z_floor);
 
     // Find points of the cube
-    const p000 = lutData[(x_floor * lutSize + y_floor) * lutSize + z_floor];
-    const p001 = lutData[(x_floor * lutSize + y_floor) * lutSize + z_ceil];
-    const p010 = lutData[(x_floor * lutSize + y_ceil) * lutSize + z_floor];
-    const p011 = lutData[(x_floor * lutSize + y_ceil) * lutSize + z_ceil];
-    const p100 = lutData[(x_ceil * lutSize + y_floor) * lutSize + z_floor];
-    const p101 = lutData[(x_ceil * lutSize + y_floor) * lutSize + z_ceil];
-    const p110 = lutData[(x_ceil * lutSize + y_ceil) * lutSize + z_floor];
-    const p111 = lutData[(x_ceil * lutSize + y_ceil) * lutSize + z_ceil];
+    const p000 = state.lut.data[(x_floor * state.lut.size + y_floor) * state.lut.size + z_floor];
+    const p001 = state.lut.data[(x_floor * state.lut.size + y_floor) * state.lut.size + z_ceil];
+    const p010 = state.lut.data[(x_floor * state.lut.size + y_ceil) * state.lut.size + z_floor];
+    const p011 = state.lut.data[(x_floor * state.lut.size + y_ceil) * state.lut.size + z_ceil];
+    const p100 = state.lut.data[(x_ceil * state.lut.size + y_floor) * state.lut.size + z_floor];
+    const p101 = state.lut.data[(x_ceil * state.lut.size + y_floor) * state.lut.size + z_ceil];
+    const p110 = state.lut.data[(x_ceil * state.lut.size + y_ceil) * state.lut.size + z_floor];
+    const p111 = state.lut.data[(x_ceil * state.lut.size + y_ceil) * state.lut.size + z_ceil];
 
     // Lerp along x-axis
     const px00 = p000.lerp(p100, u);
