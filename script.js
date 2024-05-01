@@ -1,5 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GammaCorrectionShader } from 'three/addons/shaders/GammaCorrectionShader.js';
+import { DataTexture } from 'three';
 
 class Color {
     constructor(r, g, b) {
@@ -269,36 +274,63 @@ class Color {
 }
 
 const checkerLookup = [
-    new Color(115, 82, 68),
-    new Color(194, 150, 130),
-    new Color(98, 122, 157),
-    new Color(87, 108, 67),
-    new Color(133, 128, 177),
-    new Color(103, 189, 170),
-    new Color(214, 126, 44),
-    new Color(80, 91, 166),
-    new Color(193, 90, 99),
-    new Color(94, 60, 108),
-    new Color(157, 188, 64),
-    new Color(224, 163, 46),
-    new Color(56, 61, 150),
-    new Color(70, 148, 73),
-    new Color(175, 54, 60),
-    new Color(231, 199, 31),
-    new Color(187, 86, 149),
-    new Color(8, 133, 161),
-    new Color(243, 243, 242),
-    new Color(200, 200, 200),
-    new Color(160, 160, 160),
-    new Color(122, 122, 121),
-    new Color(85, 85, 85),
-    new Color(52, 52, 52),
+    [115, 82, 68],
+    [194, 150, 130],
+    [98, 122, 157],
+    [87, 108, 67],
+    [133, 128, 177],
+    [103, 189, 170],
+    [214, 126, 44],
+    [80, 91, 166],
+    [193, 90, 99],
+    [94, 60, 108],
+    [157, 188, 64],
+    [224, 163, 46],
+    [56, 61, 150],
+    [70, 148, 73],
+    [175, 54, 60],
+    [231, 199, 31],
+    [187, 86, 149],
+    [8, 133, 161],
+    [243, 243, 242],
+    [200, 200, 200],
+    [160, 160, 160],
+    [122, 122, 121],
+    [85, 85, 85],
+    [52, 52, 52],
 ];
 
 // Settings, constants...
 const TAU = 2 * Math.PI;
-const POINT_BASE_COUNT = 16;
+const POINT_BASE_COUNT = 20;
 const POINT_SIZE = 0.2;
+
+let state = {
+    threejs: {
+        scene: {},
+        camera: {},
+        controls: {},
+        renderer: {}
+    },
+    file: {
+        is_changed: true
+    },
+    lut: {
+        data: [],
+        size: 0,
+        name: "",
+        is_valid: false,
+        component_size: 3
+    },
+    preview_img: {
+        data: [],
+        scene: {},
+        camera: {},
+        renderer: {},
+        composer: {},
+        lut_pass: {}
+    }
+};
 
 const LOG_LEVEL = Object.freeze({
     ERROR: 0,
@@ -328,6 +360,27 @@ function log(msg, level) {
             console.debug(`[DEBUG]: ${msg}`);
         }
     }
+}
+
+// Remap
+// TODO: Add comment and make it work with both arrays
+// and regular numbers.
+function remap_color(color, oldMin, oldMax, newMin, newMax) {
+    return [
+        (color[0] - oldMin) / (oldMax - oldMin) * (newMax - newMin) + newMin,
+        (color[1] - oldMin) / (oldMax - oldMin) * (newMax - newMin) + newMin,
+        (color[2] - oldMin) / (oldMax - oldMin) * (newMax - newMin) + newMin
+    ];
+}
+
+function mul_scalar(color, scalar) {
+    return [color[0] * scalar, color[1] * scalar, color[2] * scalar];
+}
+
+// TODO: this is not as simple as this.
+// will have to work on this a bit more later...
+function calc_luminance(color) {
+    return 0.299 * color[0] + 0.587 * color[1] + 0.114 * color[2];
 }
 
 function init_threejs() {
@@ -411,10 +464,490 @@ function init_threejs() {
     points.position.set(points.position.x - 0.5, points.position.y - 0.5, points.position.z - 0.5);
 }
 
-function threejs_animate() {
-    requestAnimationFrame(threejs_animate);
+function init_preview_img() {
+    state.preview_img.scene = new THREE.Scene();
+    state.preview_img.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    state.preview_img.renderer = new THREE.WebGLRenderer({
+        canvas: canvas_prev_img
+    });
+
+
+    // state.preview_img.renderer.colorSpace = THREE.SRGBColorSpace;
+    // state.preview_img.renderer.toneMapping = THREE.ReinhardToneMapping;
+
+    const geo = new THREE.PlaneGeometry(2, 2);
+    const texture = new THREE.TextureLoader().load(
+        "assets/images/prev_image2.jpg",
+        () => {
+            console.log("Image loaded");
+            texture.colorSpace = THREE.SRGBColorSpace;
+            state.preview_img.renderer.render(state.preview_img.scene, state.preview_img.camera);
+        },
+        undefined,
+        (error) => {
+            console.error("Error loading image:", error);
+        }
+    );
+    const material = new THREE.MeshBasicMaterial({ map: texture });
+    const plane = new THREE.Mesh(geo, material);
+
+    state.preview_img.scene.add(plane);
+
+    state.preview_img.composer = new EffectComposer(state.preview_img.renderer);
+    state.preview_img.composer.addPass(new RenderPass(state.preview_img.scene, state.preview_img.camera));
+
+    const test_lut = [
+        1.0, 1.0, 0.0, 1.0,
+        1.0, 1.0, 0.0, 1.0,
+        1.0, 1.0, 0.0, 1.0
+    ];
+    const lutSize = 1; // Default placeholder size
+    const lutData = new Float32Array(test_lut); // Default placeholder data
+    const lut_texture = new THREE.Data3DTexture(lutData, lutSize, lutSize, lutSize);
+    lut_texture.format = THREE.RGBAFormat;
+    lut_texture.type = THREE.FloatType;
+    lut_texture.minFilter = THREE.LinearFilter;
+    lut_texture.magFilter = THREE.LinearFilter;
+    lut_texture.wrapS = THREE.ClampToEdgeWrapping;
+    lut_texture.wrapT = THREE.ClampToEdgeWrapping;
+    lut_texture.wrapR = THREE.ClampToEdgeWrapping;
+    lut_texture.needsUpdate = true;
+
+    const lut_shader = {
+        uniforms: {
+            tDiffuse: { value: null },
+            lutMap: { value: new THREE.Data3DTexture() },
+            lutSize: { value: 0 },
+            enabled: { value: false }
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform sampler2D tDiffuse;
+            uniform sampler3D lutMap;
+            uniform float lutSize;
+            uniform bool enabled;
+            varying vec2 vUv;
+
+            vec3 calc_corner_coord(float R, float G, float B) {
+                return vec3(
+                    R / lutSize,
+                    G / lutSize,
+                    B / lutSize
+                );
+            }
+
+            vec3 remap_color(vec3 input_color, float old_min, float old_max, float new_min, float new_max) {
+                return vec3(
+                    (input_color.r - old_min) / (old_max - old_min) * (new_max - new_min) + new_min,
+                    (input_color.g - old_min) / (old_max - old_min) * (new_max - new_min) + new_min,
+                    (input_color.b - old_min) / (old_max - old_min) * (new_max - new_min) + new_min
+                );
+            }
+
+            vec3 tetrahedral_interpolation(vec3 input_color) {
+                const float matrix_t1[32] = float[32]
+                    (1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    -1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0);
+
+                const float matrix_t2[32] = float[32](
+                    1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    -1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 1.0,
+                    0.0, 0.0, 0.0, 0.0, -1.0, 1.0, 0.0, 0.0
+                );
+            
+                const float matrix_t3[32] = float[32](
+                    1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, -1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 1.0,
+                    -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                );
+            
+                const float matrix_t4[32] = float[32](
+                    1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+                    -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0
+                );
+            
+                const float matrix_t5[32] = float[32](
+                    1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0,
+                    -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0
+                );
+            
+                const float matrix_t6[32] = float[32](
+                    1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0,
+                    0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                    -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                );
+            
+                float R0 = floor(input_color.r);
+                float G0 = floor(input_color.g);
+                float B0 = floor(input_color.b);
+            
+                float R1 = ceil(input_color.r);
+                float G1 = ceil(input_color.g);
+                float B1 = ceil(input_color.b);
+
+                float delta_r = (R0 == R1) ? 0.0 : (input_color.r - R0) / (R1 - R0);
+                float delta_g = (G0 == G1) ? 0.0 : (input_color.g - G0) / (G1 - G0);
+                float delta_b = (B0 == B1) ? 0.0 : (input_color.b - B0) / (B1 - B0);
+            
+                float delta_t[4] = float[4](1.0, delta_b, delta_r, delta_g);
+            
+                float Vr[8] = float[8](
+                    texture(lutMap, calc_corner_coord(R0, G0, B0)).r,
+                    texture(lutMap, calc_corner_coord(R0, G1, B0)).r,
+                    texture(lutMap, calc_corner_coord(R1, G0, B0)).r,
+                    texture(lutMap, calc_corner_coord(R1, G1, B0)).r,
+                    texture(lutMap, calc_corner_coord(R0, G0, B1)).r,
+                    texture(lutMap, calc_corner_coord(R0, G1, B1)).r,
+                    texture(lutMap, calc_corner_coord(R1, G0, B1)).r,
+                    texture(lutMap, calc_corner_coord(R1, G1, B1)).r
+                );
+            
+                float Vg[8] = float[8](
+                    texture(lutMap, calc_corner_coord(R0, G0, B0)).g,
+                    texture(lutMap, calc_corner_coord(R0, G1, B0)).g,
+                    texture(lutMap, calc_corner_coord(R1, G0, B0)).g,
+                    texture(lutMap, calc_corner_coord(R1, G1, B0)).g,
+                    texture(lutMap, calc_corner_coord(R0, G0, B1)).g,
+                    texture(lutMap, calc_corner_coord(R0, G1, B1)).g,
+                    texture(lutMap, calc_corner_coord(R1, G0, B1)).g,
+                    texture(lutMap, calc_corner_coord(R1, G1, B1)).g
+                );
+            
+                float Vb[8] = float[8](
+                    texture(lutMap, calc_corner_coord(R0, G0, B0)).b,
+                    texture(lutMap, calc_corner_coord(R0, G1, B0)).b,
+                    texture(lutMap, calc_corner_coord(R1, G0, B0)).b,
+                    texture(lutMap, calc_corner_coord(R1, G1, B0)).b,
+                    texture(lutMap, calc_corner_coord(R0, G0, B1)).b,
+                    texture(lutMap, calc_corner_coord(R0, G1, B1)).b,
+                    texture(lutMap, calc_corner_coord(R1, G0, B1)).b,
+                    texture(lutMap, calc_corner_coord(R1, G1, B1)).b
+                );
+            
+                // Determine which tetrahedron to use
+                float result_red;
+                float result_green;
+                float result_blue;
+
+                if (delta_b > delta_r && delta_r > delta_g) {
+                    // T1
+                    float result[8] = float[8](
+                        delta_t[0] * matrix_t1[0] + delta_t[1] * matrix_t1[8] + delta_t[2] * matrix_t1[16] + delta_t[3] * matrix_t1[24],
+                        delta_t[0] * matrix_t1[1] + delta_t[1] * matrix_t1[9] + delta_t[2] * matrix_t1[17] + delta_t[3] * matrix_t1[25],
+                        delta_t[0] * matrix_t1[2] + delta_t[1] * matrix_t1[10] + delta_t[2] * matrix_t1[18] + delta_t[3] * matrix_t1[26],
+                        delta_t[0] * matrix_t1[3] + delta_t[1] * matrix_t1[11] + delta_t[2] * matrix_t1[19] + delta_t[3] * matrix_t1[27],
+                        delta_t[0] * matrix_t1[4] + delta_t[1] * matrix_t1[12] + delta_t[2] * matrix_t1[20] + delta_t[3] * matrix_t1[28],
+                        delta_t[0] * matrix_t1[5] + delta_t[1] * matrix_t1[13] + delta_t[2] * matrix_t1[21] + delta_t[3] * matrix_t1[29],
+                        delta_t[0] * matrix_t1[6] + delta_t[1] * matrix_t1[14] + delta_t[2] * matrix_t1[22] + delta_t[3] * matrix_t1[30],
+                        delta_t[0] * matrix_t1[7] + delta_t[1] * matrix_t1[15] + delta_t[2] * matrix_t1[23] + delta_t[3] * matrix_t1[31]
+                    );
+
+                    result_red = result[0] * Vr[0] +
+                                result[1] * Vr[1] +
+                                result[2] * Vr[2] +
+                                result[3] * Vr[3] +
+                                result[4] * Vr[4] +
+                                result[5] * Vr[5] +
+                                result[6] * Vr[6] +
+                                result[7] * Vr[7];
+
+                    result_green = result[0] * Vg[0] +
+                                result[1] * Vg[1] +
+                                result[2] * Vg[2] +
+                                result[3] * Vg[3] +
+                                result[4] * Vg[4] +
+                                result[5] * Vg[5] +
+                                result[6] * Vg[6] +
+                                result[7] * Vg[7];
+
+                    result_blue = result[0] * Vb[0] +
+                                result[1] * Vb[1] +
+                                result[2] * Vb[2] +
+                                result[3] * Vb[3] +
+                                result[4] * Vb[4] +
+                                result[5] * Vb[5] +
+                                result[6] * Vb[6] +
+                                result[7] * Vb[7];
+                } else if (delta_b > delta_g && delta_g > delta_r) {
+                    // T2
+                    float result[8] = float[8](
+                        delta_t[0] * matrix_t2[0] + delta_t[1] * matrix_t2[8] + delta_t[2] * matrix_t2[16] + delta_t[3] * matrix_t2[24],
+                        delta_t[0] * matrix_t2[1] + delta_t[1] * matrix_t2[9] + delta_t[2] * matrix_t2[17] + delta_t[3] * matrix_t2[25],
+                        delta_t[0] * matrix_t2[2] + delta_t[1] * matrix_t2[10] + delta_t[2] * matrix_t2[18] + delta_t[3] * matrix_t2[26],
+                        delta_t[0] * matrix_t2[3] + delta_t[1] * matrix_t2[11] + delta_t[2] * matrix_t2[19] + delta_t[3] * matrix_t2[27],
+                        delta_t[0] * matrix_t2[4] + delta_t[1] * matrix_t2[12] + delta_t[2] * matrix_t2[20] + delta_t[3] * matrix_t2[28],
+                        delta_t[0] * matrix_t2[5] + delta_t[1] * matrix_t2[13] + delta_t[2] * matrix_t2[21] + delta_t[3] * matrix_t2[29],
+                        delta_t[0] * matrix_t2[6] + delta_t[1] * matrix_t2[14] + delta_t[2] * matrix_t2[22] + delta_t[3] * matrix_t2[30],
+                        delta_t[0] * matrix_t2[7] + delta_t[1] * matrix_t2[15] + delta_t[2] * matrix_t2[23] + delta_t[3] * matrix_t2[31]
+                    );
+
+                    result_red = result[0] * Vr[0] +
+                                result[1] * Vr[1] +
+                                result[2] * Vr[2] +
+                                result[3] * Vr[3] +
+                                result[4] * Vr[4] +
+                                result[5] * Vr[5] +
+                                result[6] * Vr[6] +
+                                result[7] * Vr[7];
+
+                    result_green = result[0] * Vg[0] +
+                                result[1] * Vg[1] +
+                                result[2] * Vg[2] +
+                                result[3] * Vg[3] +
+                                result[4] * Vg[4] +
+                                result[5] * Vg[5] +
+                                result[6] * Vg[6] +
+                                result[7] * Vg[7];
+
+                    result_blue = result[0] * Vb[0] +
+                                result[1] * Vb[1] +
+                                result[2] * Vb[2] +
+                                result[3] * Vb[3] +
+                                result[4] * Vb[4] +
+                                result[5] * Vb[5] +
+                                result[6] * Vb[6] +
+                                result[7] * Vb[7];
+                } else if (delta_g > delta_b && delta_b > delta_r) {
+                    // t3
+                    float result[8] = float[8](
+                        delta_t[0] * matrix_t3[0] + delta_t[1] * matrix_t3[8] + delta_t[2] * matrix_t3[16] + delta_t[3] * matrix_t3[24],
+                        delta_t[0] * matrix_t3[1] + delta_t[1] * matrix_t3[9] + delta_t[2] * matrix_t3[17] + delta_t[3] * matrix_t3[25],
+                        delta_t[0] * matrix_t3[2] + delta_t[1] * matrix_t3[10] + delta_t[2] * matrix_t3[18] + delta_t[3] * matrix_t3[26],
+                        delta_t[0] * matrix_t3[3] + delta_t[1] * matrix_t3[11] + delta_t[2] * matrix_t3[19] + delta_t[3] * matrix_t3[27],
+                        delta_t[0] * matrix_t3[4] + delta_t[1] * matrix_t3[12] + delta_t[2] * matrix_t3[20] + delta_t[3] * matrix_t3[28],
+                        delta_t[0] * matrix_t3[5] + delta_t[1] * matrix_t3[13] + delta_t[2] * matrix_t3[21] + delta_t[3] * matrix_t3[29],
+                        delta_t[0] * matrix_t3[6] + delta_t[1] * matrix_t3[14] + delta_t[2] * matrix_t3[22] + delta_t[3] * matrix_t3[30],
+                        delta_t[0] * matrix_t3[7] + delta_t[1] * matrix_t3[15] + delta_t[2] * matrix_t3[23] + delta_t[3] * matrix_t3[31]
+                    );
+
+                    result_red = result[0] * Vr[0] +
+                                result[1] * Vr[1] +
+                                result[2] * Vr[2] +
+                                result[3] * Vr[3] +
+                                result[4] * Vr[4] +
+                                result[5] * Vr[5] +
+                                result[6] * Vr[6] +
+                                result[7] * Vr[7];
+
+                    result_green = result[0] * Vg[0] +
+                                result[1] * Vg[1] +
+                                result[2] * Vg[2] +
+                                result[3] * Vg[3] +
+                                result[4] * Vg[4] +
+                                result[5] * Vg[5] +
+                                result[6] * Vg[6] +
+                                result[7] * Vg[7];
+
+                    result_blue = result[0] * Vb[0] +
+                                result[1] * Vb[1] +
+                                result[2] * Vb[2] +
+                                result[3] * Vb[3] +
+                                result[4] * Vb[4] +
+                                result[5] * Vb[5] +
+                                result[6] * Vb[6] +
+                                result[7] * Vb[7];
+                } else if (delta_r > delta_b && delta_b > delta_g) {
+                    // t4
+                    float result[8] = float[8](
+                        delta_t[0] * matrix_t4[0] + delta_t[1] * matrix_t4[8] + delta_t[2] * matrix_t4[16] + delta_t[3] * matrix_t4[24],
+                        delta_t[0] * matrix_t4[1] + delta_t[1] * matrix_t4[9] + delta_t[2] * matrix_t4[17] + delta_t[3] * matrix_t4[25],
+                        delta_t[0] * matrix_t4[2] + delta_t[1] * matrix_t4[10] + delta_t[2] * matrix_t4[18] + delta_t[3] * matrix_t4[26],
+                        delta_t[0] * matrix_t4[3] + delta_t[1] * matrix_t4[11] + delta_t[2] * matrix_t4[19] + delta_t[3] * matrix_t4[27],
+                        delta_t[0] * matrix_t4[4] + delta_t[1] * matrix_t4[12] + delta_t[2] * matrix_t4[20] + delta_t[3] * matrix_t4[28],
+                        delta_t[0] * matrix_t4[5] + delta_t[1] * matrix_t4[13] + delta_t[2] * matrix_t4[21] + delta_t[3] * matrix_t4[29],
+                        delta_t[0] * matrix_t4[6] + delta_t[1] * matrix_t4[14] + delta_t[2] * matrix_t4[22] + delta_t[3] * matrix_t4[30],
+                        delta_t[0] * matrix_t4[7] + delta_t[1] * matrix_t4[15] + delta_t[2] * matrix_t4[23] + delta_t[3] * matrix_t4[31]
+                    );
+
+                    result_red = result[0] * Vr[0] +
+                                result[1] * Vr[1] +
+                                result[2] * Vr[2] +
+                                result[3] * Vr[3] +
+                                result[4] * Vr[4] +
+                                result[5] * Vr[5] +
+                                result[6] * Vr[6] +
+                                result[7] * Vr[7];
+
+                    result_green = result[0] * Vg[0] +
+                                result[1] * Vg[1] +
+                                result[2] * Vg[2] +
+                                result[3] * Vg[3] +
+                                result[4] * Vg[4] +
+                                result[5] * Vg[5] +
+                                result[6] * Vg[6] +
+                                result[7] * Vg[7];
+
+                    result_blue = result[0] * Vb[0] +
+                                result[1] * Vb[1] +
+                                result[2] * Vb[2] +
+                                result[3] * Vb[3] +
+                                result[4] * Vb[4] +
+                                result[5] * Vb[5] +
+                                result[6] * Vb[6] +
+                                result[7] * Vb[7];
+                } else if (delta_r > delta_g && delta_g > delta_b) {
+                    // t5
+                    float result[8] = float[8](
+                        delta_t[0] * matrix_t5[0] + delta_t[1] * matrix_t5[8] + delta_t[2] * matrix_t5[16] + delta_t[3] * matrix_t5[24],
+                        delta_t[0] * matrix_t5[1] + delta_t[1] * matrix_t5[9] + delta_t[2] * matrix_t5[17] + delta_t[3] * matrix_t5[25],
+                        delta_t[0] * matrix_t5[2] + delta_t[1] * matrix_t5[10] + delta_t[2] * matrix_t5[18] + delta_t[3] * matrix_t5[26],
+                        delta_t[0] * matrix_t5[3] + delta_t[1] * matrix_t5[11] + delta_t[2] * matrix_t5[19] + delta_t[3] * matrix_t5[27],
+                        delta_t[0] * matrix_t5[4] + delta_t[1] * matrix_t5[12] + delta_t[2] * matrix_t5[20] + delta_t[3] * matrix_t5[28],
+                        delta_t[0] * matrix_t5[5] + delta_t[1] * matrix_t5[13] + delta_t[2] * matrix_t5[21] + delta_t[3] * matrix_t5[29],
+                        delta_t[0] * matrix_t5[6] + delta_t[1] * matrix_t5[14] + delta_t[2] * matrix_t5[22] + delta_t[3] * matrix_t5[30],
+                        delta_t[0] * matrix_t5[7] + delta_t[1] * matrix_t5[15] + delta_t[2] * matrix_t5[23] + delta_t[3] * matrix_t5[31]
+                    );
+
+                    result_red = result[0] * Vr[0] +
+                                result[1] * Vr[1] +
+                                result[2] * Vr[2] +
+                                result[3] * Vr[3] +
+                                result[4] * Vr[4] +
+                                result[5] * Vr[5] +
+                                result[6] * Vr[6] +
+                                result[7] * Vr[7];
+
+                    result_green = result[0] * Vg[0] +
+                                result[1] * Vg[1] +
+                                result[2] * Vg[2] +
+                                result[3] * Vg[3] +
+                                result[4] * Vg[4] +
+                                result[5] * Vg[5] +
+                                result[6] * Vg[6] +
+                                result[7] * Vg[7];
+
+                    result_blue = result[0] * Vb[0] +
+                                result[1] * Vb[1] +
+                                result[2] * Vb[2] +
+                                result[3] * Vb[3] +
+                                result[4] * Vb[4] +
+                                result[5] * Vb[5] +
+                                result[6] * Vb[6] +
+                                result[7] * Vb[7];
+                } else {
+                    // t6
+                    float result[8] = float[8](
+                        delta_t[0] * matrix_t6[0] + delta_t[1] * matrix_t6[8] + delta_t[2] * matrix_t6[16] + delta_t[3] * matrix_t6[24],
+                        delta_t[0] * matrix_t6[1] + delta_t[1] * matrix_t6[9] + delta_t[2] * matrix_t6[17] + delta_t[3] * matrix_t6[25],
+                        delta_t[0] * matrix_t6[2] + delta_t[1] * matrix_t6[10] + delta_t[2] * matrix_t6[18] + delta_t[3] * matrix_t6[26],
+                        delta_t[0] * matrix_t6[3] + delta_t[1] * matrix_t6[11] + delta_t[2] * matrix_t6[19] + delta_t[3] * matrix_t6[27],
+                        delta_t[0] * matrix_t6[4] + delta_t[1] * matrix_t6[12] + delta_t[2] * matrix_t6[20] + delta_t[3] * matrix_t6[28],
+                        delta_t[0] * matrix_t6[5] + delta_t[1] * matrix_t6[13] + delta_t[2] * matrix_t6[21] + delta_t[3] * matrix_t6[29],
+                        delta_t[0] * matrix_t6[6] + delta_t[1] * matrix_t6[14] + delta_t[2] * matrix_t6[22] + delta_t[3] * matrix_t6[30],
+                        delta_t[0] * matrix_t6[7] + delta_t[1] * matrix_t6[15] + delta_t[2] * matrix_t6[23] + delta_t[3] * matrix_t6[31]
+                    );
+
+                    result_red = result[0] * Vr[0] +
+                                result[1] * Vr[1] +
+                                result[2] * Vr[2] +
+                                result[3] * Vr[3] +
+                                result[4] * Vr[4] +
+                                result[5] * Vr[5] +
+                                result[6] * Vr[6] +
+                                result[7] * Vr[7];
+
+                    result_green = result[0] * Vg[0] +
+                                result[1] * Vg[1] +
+                                result[2] * Vg[2] +
+                                result[3] * Vg[3] +
+                                result[4] * Vg[4] +
+                                result[5] * Vg[5] +
+                                result[6] * Vg[6] +
+                                result[7] * Vg[7];
+
+                    result_blue = result[0] * Vb[0] +
+                                result[1] * Vb[1] +
+                                result[2] * Vb[2] +
+                                result[3] * Vb[3] +
+                                result[4] * Vb[4] +
+                                result[5] * Vb[5] +
+                                result[6] * Vb[6] +
+                                result[7] * Vb[7];
+                }
+            
+                return vec3(result_red, result_green, result_blue);
+            }
+
+            vec3 find_lut_output(vec3 input_color) {
+                // Map color to domain [0, 1]
+                vec3 domain_color = remap_color(input_color, 0.0, 1.0, 0.0, 1.0);
+            
+                // Map to grid units
+                vec3 grid_color = domain_color * (lutSize - 1.0);
+            
+                // Interpolate
+                vec3 interp_color = tetrahedral_interpolation(grid_color);
+            
+                return interp_color;
+            }
+
+            void main() {
+                vec4 originalColor = LinearTosRGB(texture(tDiffuse, vUv));
+
+                if (enabled && lutSize != 0.0) {
+                    // vec3 lutCoord = vec3(vUv, 0.5);
+                    // vec3 lutColor = texture(lutMap, lutCoord).rgb;
+                    // gl_FragColor = vec4(lutColor, 1.0);
+
+                    vec3 lut_color = find_lut_output(originalColor.rgb);
+                    gl_FragColor = vec4(lut_color, 1.0);
+
+                } else {
+                    vec4 originalColor = texture(tDiffuse, vUv);
+                    gl_FragColor = LinearTosRGB(originalColor);
+                }
+            }
+        `
+    };
+
+    // Adding the above shader pass
+    state.preview_img.lut_pass = new ShaderPass(lut_shader);
+    state.preview_img.composer.addPass(state.preview_img.lut_pass);
+
+    // Adding a gamma correction pass
+    // TODO: not needed when using `LinearTosRGB()` function in shader
+    // const gamma_correction_pass = new ShaderPass(GammaCorrectionShader);
+    // state.preview_img.composer.addPass(gamma_correction_pass);
+
+    state.preview_img.renderer.setSize(canvas_prev_img.width, canvas_prev_img.height);
+}
+
+let last_time = 0;
+function game_loop(timestamp) {
+    let delta = timestamp - last_time;
+
+    update(delta);
+    render();
+
+    last_time = timestamp;
+    window.requestAnimationFrame(game_loop);
+}
+
+function update(delta) {
     state.threejs.controls.update();
+}
+
+function render() {
+    // Render LUT Cube
     state.threejs.renderer.render(state.threejs.scene, state.threejs.camera);
+
+    // Render Preview Image
+    state.preview_img.composer.render();
 }
 
 function draw_canvas_grid(canvas, color, stepsH, stepsV = -1, diagonal = true) {
@@ -455,24 +988,6 @@ function draw_canvas_grid(canvas, color, stepsH, stepsV = -1, diagonal = true) {
     ctx.stroke();
 }
 
-let state = {
-    threejs: {
-        scene: {},
-        camera: {},
-        controls: {},
-        renderer: {}
-    },
-    file: {
-        is_changed: true
-    },
-    lut: {
-        data: [],
-        size: 0,
-        name: "",
-        is_valid: false
-    }
-};
-
 // Upload field and button
 const upload_btn = document.getElementById("upload-button");
 const file_input = document.getElementById("file-input");
@@ -481,6 +996,8 @@ const file_input = document.getElementById("file-input");
 const canvas_graph = document.getElementById("canvas-graph");
 // Canvas - for threejs
 const canvas_cube = document.getElementById("canvas-cube");
+// Canvas - for preview image
+const canvas_prev_img = document.getElementById("canvas-preview-img");
 
 // LUT infobox
 const info_name = document.getElementById("lut-name");
@@ -492,7 +1009,10 @@ const color_patches = document.querySelectorAll('.color-patch');
 
 document.addEventListener("DOMContentLoaded", (e) => {
     init_threejs();
-    threejs_animate();
+    init_preview_img();
+
+    window.requestAnimationFrame(game_loop);
+
     draw_canvas_grid(canvas_graph, [64, 51, 15], 4);
 });
 
@@ -506,12 +1026,16 @@ upload_btn.addEventListener("click", async function () {
 
     // Only read in, if we detect a change in file
     if (file && state.file.is_changed) {
+        // Blur interface for loading...
+        document.querySelector("body").style.filter = "blur(10px)";
+
         const reader = new FileReader();
         reader.onload = async function (e) {
             // Parse the LUT as array of data
             const success = await parse_lut_data(e.target.result);
 
             if (success) {
+                document.querySelector("body").style.filter = "blur(0)";
                 log("LUT data successfully parsed.", LOG_LEVEL.INFO);
                 log(state.lut.size, LOG_LEVEL.DEBUG);
 
@@ -553,14 +1077,18 @@ async function parse_lut_data(text) {
             // Check if this is a line for LUT data
             if (line[0] !== 'L' && line[0] !== 'T' && line[0] !== 'D') {
                 const values = line.split(' ');
-                const r = parseFloat(values[0]);
-                const g = parseFloat(values[1]);
-                const b = parseFloat(values[2]);
-                state.lut.data.push(new Color(r, g, b));
+
+                state.lut.data.push(parseFloat(values[0]));
+                state.lut.data.push(parseFloat(values[1]));
+                state.lut.data.push(parseFloat(values[2]));
+
+                // const g = parseFloat(values[1]);
+                // const b = parseFloat(values[2]);
+                // state.lut.data.push(new Color(r, g, b));
             }
         }
         // Calculate the size of the LUT based on the data length
-        state.lut.size = Math.cbrt(state.lut.data.length);
+        state.lut.size = Math.cbrt(state.lut.data.length / 3);
 
         // LUT is loaded and parsed!
         state.lut.is_valid = true;
@@ -587,6 +1115,11 @@ async function display_lut_data() {
 
     // Mutate the 3D cube
     await display_lut_cube();
+
+    console.log(state.lut.data.length);
+
+    // Apply LUT to preview image
+    await display_lut_as_preview();
 }
 
 async function display_lut_graph() {
@@ -610,17 +1143,17 @@ async function display_lut_graph() {
         const yLCoords = [];
 
         for (let i = 0; i <= 255; i += 255 / state.lut.size) {
-            const output = find_lut_output(new Color(i / 255, i / 255, i / 255));
+            const output = find_lut_output([i / 255, i / 255, i / 255]);
             const x = i * (width / 256);
-            const yR = height - output.r * height;
-            const yG = height - output.g * height;
-            const yB = height - output.b * height;
+            const yR = height - output[0] * height;
+            const yG = height - output[1] * height;
+            const yB = height - output[2] * height;
 
             xCoords.push(x);
             yRCoords.push(yR);
             yGCoords.push(yG);
             yBCoords.push(yB);
-            yLCoords.push(height - output.getLuminance() * height);
+            yLCoords.push(height - calc_luminance(output) * height);
         }
 
         // TODO: can be a single loop
@@ -684,7 +1217,21 @@ async function display_lut_color_patches() {
         log("Updating color patches...", LOG_LEVEL.DEBUG);
         color_patches.forEach((el, index) => {
             const after_patch = el.querySelector(".after");
-            after_patch.style.backgroundColor = `rgb(${find_lut_output(checkerLookup[index].divideScalar(255)).multiplyScalar(255).toArray().join(',')})`;
+            const interp_color = find_lut_output(
+                [
+                    checkerLookup[index][0] / 255,
+                    checkerLookup[index][1] / 255,
+                    checkerLookup[index][2] / 255,
+                ]
+            );
+
+            const out_color = [
+                interp_color[0] * 255,
+                interp_color[1] * 255,
+                interp_color[2] * 255
+            ].join(',');
+
+            after_patch.style.backgroundColor = `rgb(${out_color})`;
         });
 
         resolve();
@@ -706,21 +1253,21 @@ async function display_lut_cube() {
                     const index = (r * target_size * target_size + g * target_size + b) * 3;
 
                     // Calculate the normalized input color
-                    const input_color = new Color(
+                    const input_color = [
                         r / (target_size - 1),
                         g / (target_size - 1),
                         b / (target_size - 1)
-                    );
+                    ];
 
                     const out_color = find_lut_output(input_color);
 
-                    pos[index] = out_color.r;
-                    pos[index + 1] = out_color.g;
-                    pos[index + 2] = out_color.b;
+                    pos[index] = out_color[0];
+                    pos[index + 1] = out_color[1];
+                    pos[index + 2] = out_color[2];
 
-                    col[index] = out_color.r;
-                    col[index + 1] = out_color.g;
-                    col[index + 2] = out_color.b;
+                    col[index] = out_color[0];
+                    col[index + 1] = out_color[1];
+                    col[index + 2] = out_color[2];
                 }
             }
         }
@@ -731,6 +1278,45 @@ async function display_lut_cube() {
         resolve();
     });
 }
+
+async function display_lut_as_preview() {
+    return new Promise((resolve) => {
+        log("Applying LUT to preview image...", LOG_LEVEL.DEBUG);
+
+        // NOTE: we need to add an alpha element, because we can only
+        // pass this as RGBA and not RGB....!
+        const rgba_lut_data = new Float32Array(state.lut.data.length * 4 / 3);
+        for (let i = 0; i < state.lut.data.length; i += 3) {
+            rgba_lut_data.set(state.lut.data.slice(i, i + 3), i * 4 / 3);
+            rgba_lut_data[i * 4 / 3 + 3] = 1.0;
+        }
+
+        const lut_texture = new THREE.Data3DTexture(rgba_lut_data, state.lut.size, state.lut.size, state.lut.size);
+        lut_texture.format = THREE.RGBAFormat;
+        lut_texture.type = THREE.FloatType;
+        lut_texture.minFilter = THREE.NearestFilter;
+        lut_texture.magFilter = THREE.NearestFilter;
+        lut_texture.wrapS = THREE.ClampToEdgeWrapping;
+        lut_texture.wrapT = THREE.ClampToEdgeWrapping;
+        lut_texture.wrapR = THREE.ClampToEdgeWrapping;
+        lut_texture.needsUpdate = true;
+
+        state.preview_img.lut_pass.uniforms.lutMap.value = lut_texture;
+        state.preview_img.lut_pass.uniforms.lutSize.value = state.lut.size;
+        state.preview_img.lut_pass.uniforms.enabled.value = true;
+
+        resolve();
+    });
+}
+
+// TODO: make it better?
+canvas_prev_img.addEventListener("mousedown", function (e) {
+    state.preview_img.lut_pass.uniforms.enabled.value = false;
+
+    canvas_prev_img.addEventListener("mouseup", function (e) {
+        state.preview_img.lut_pass.uniforms.enabled.value = true;
+    });
+});
 
 // Global variable for LUT data
 // TODO: This should be encapsulated in an object
@@ -975,12 +1561,21 @@ function displayLUT() {
 
 }
 
+/**
+ * Returns the interpolated color based on an input,
+ * LUT data, and interpolation method.
+ * 
+ * @param {array} input Input color as an array [R, G, B]
+ * @returns {array} interpolated color [R, G, B]
+ */
 function find_lut_output(input) {
     // Map color to domain [0, 1]
-    const domainColor = input.remap(0, 1, 0, 1);
+    // const domainColor = input.remap(0, 1, 0, 1);
+    const domainColor = remap_color(input, 0, 1, 0, 1);
 
     // Map to grid units
-    const gridColor = domainColor.multiplyScalar(state.lut.size - 1);
+    // const gridColor = domainColor.multiplyScalar(state.lut.size - 1);
+    const gridColor = mul_scalar(domainColor, state.lut.size - 1);
 
     // Interpolate
     // tetraInterp(gridColor);
@@ -1031,7 +1626,7 @@ function trilerp(input) {
 }
 
 function calc_corner_index(R, G, B, size) {
-    return (B * size * size) + (G * size) + R;
+    return ((B * size * size) + (G * size) + R) * 3;
 }
 
 function tetrahedral_interpolation(input) {
@@ -1077,51 +1672,51 @@ function tetrahedral_interpolation(input) {
         [-1, 1, 0, 0, 0, 0, 0, 0]
     ]);
 
-    const R0 = Math.floor(input.r);
-    const G0 = Math.floor(input.g);
-    const B0 = Math.floor(input.b);
+    const R0 = Math.floor(input[0]);
+    const G0 = Math.floor(input[1]);
+    const B0 = Math.floor(input[2]);
 
-    const R1 = Math.ceil(input.r);
-    const G1 = Math.ceil(input.g);
-    const B1 = Math.ceil(input.b);
+    const R1 = Math.ceil(input[0]);
+    const G1 = Math.ceil(input[1]);
+    const B1 = Math.ceil(input[2]);
 
-    const delta_r = (R0 == R1) ? 0.0 : (input.r - R0) / (R1 - R0);
-    const delta_g = (G0 == G1) ? 0.0 : (input.g - G0) / (G1 - G0);
-    const delta_b = (B0 == B1) ? 0.0 : (input.b - B0) / (B1 - B0);
+    const delta_r = (R0 == R1) ? 0.0 : (input[0] - R0) / (R1 - R0);
+    const delta_g = (G0 == G1) ? 0.0 : (input[1] - G0) / (G1 - G0);
+    const delta_b = (B0 == B1) ? 0.0 : (input[2] - B0) / (B1 - B0);
 
     const delta_t = math.matrix([1, delta_b, delta_r, delta_g]);
 
     const Vr = math.matrix([
-        state.lut.data[calc_corner_index(R0, G0, B0, state.lut.size)].getChannel(0),
-        state.lut.data[calc_corner_index(R0, G1, B0, state.lut.size)].getChannel(0),
-        state.lut.data[calc_corner_index(R1, G0, B0, state.lut.size)].getChannel(0),
-        state.lut.data[calc_corner_index(R1, G1, B0, state.lut.size)].getChannel(0),
-        state.lut.data[calc_corner_index(R0, G0, B1, state.lut.size)].getChannel(0),
-        state.lut.data[calc_corner_index(R0, G1, B1, state.lut.size)].getChannel(0),
-        state.lut.data[calc_corner_index(R1, G0, B1, state.lut.size)].getChannel(0),
-        state.lut.data[calc_corner_index(R1, G1, B1, state.lut.size)].getChannel(0),
+        state.lut.data[calc_corner_index(R0, G0, B0, state.lut.size)],
+        state.lut.data[calc_corner_index(R0, G1, B0, state.lut.size)],
+        state.lut.data[calc_corner_index(R1, G0, B0, state.lut.size)],
+        state.lut.data[calc_corner_index(R1, G1, B0, state.lut.size)],
+        state.lut.data[calc_corner_index(R0, G0, B1, state.lut.size)],
+        state.lut.data[calc_corner_index(R0, G1, B1, state.lut.size)],
+        state.lut.data[calc_corner_index(R1, G0, B1, state.lut.size)],
+        state.lut.data[calc_corner_index(R1, G1, B1, state.lut.size)],
     ]);
 
     const Vg = math.matrix([
-        state.lut.data[calc_corner_index(R0, G0, B0, state.lut.size)].getChannel(1),
-        state.lut.data[calc_corner_index(R0, G1, B0, state.lut.size)].getChannel(1),
-        state.lut.data[calc_corner_index(R1, G0, B0, state.lut.size)].getChannel(1),
-        state.lut.data[calc_corner_index(R1, G1, B0, state.lut.size)].getChannel(1),
-        state.lut.data[calc_corner_index(R0, G0, B1, state.lut.size)].getChannel(1),
-        state.lut.data[calc_corner_index(R0, G1, B1, state.lut.size)].getChannel(1),
-        state.lut.data[calc_corner_index(R1, G0, B1, state.lut.size)].getChannel(1),
-        state.lut.data[calc_corner_index(R1, G1, B1, state.lut.size)].getChannel(1),
+        state.lut.data[calc_corner_index(R0, G0, B0, state.lut.size) + 1],
+        state.lut.data[calc_corner_index(R0, G1, B0, state.lut.size) + 1],
+        state.lut.data[calc_corner_index(R1, G0, B0, state.lut.size) + 1],
+        state.lut.data[calc_corner_index(R1, G1, B0, state.lut.size) + 1],
+        state.lut.data[calc_corner_index(R0, G0, B1, state.lut.size) + 1],
+        state.lut.data[calc_corner_index(R0, G1, B1, state.lut.size) + 1],
+        state.lut.data[calc_corner_index(R1, G0, B1, state.lut.size) + 1],
+        state.lut.data[calc_corner_index(R1, G1, B1, state.lut.size) + 1],
     ]);
 
     const Vb = math.matrix([
-        state.lut.data[calc_corner_index(R0, G0, B0, state.lut.size)].getChannel(2),
-        state.lut.data[calc_corner_index(R0, G1, B0, state.lut.size)].getChannel(2),
-        state.lut.data[calc_corner_index(R1, G0, B0, state.lut.size)].getChannel(2),
-        state.lut.data[calc_corner_index(R1, G1, B0, state.lut.size)].getChannel(2),
-        state.lut.data[calc_corner_index(R0, G0, B1, state.lut.size)].getChannel(2),
-        state.lut.data[calc_corner_index(R0, G1, B1, state.lut.size)].getChannel(2),
-        state.lut.data[calc_corner_index(R1, G0, B1, state.lut.size)].getChannel(2),
-        state.lut.data[calc_corner_index(R1, G1, B1, state.lut.size)].getChannel(2),
+        state.lut.data[calc_corner_index(R0, G0, B0, state.lut.size) + 2],
+        state.lut.data[calc_corner_index(R0, G1, B0, state.lut.size) + 2],
+        state.lut.data[calc_corner_index(R1, G0, B0, state.lut.size) + 2],
+        state.lut.data[calc_corner_index(R1, G1, B0, state.lut.size) + 2],
+        state.lut.data[calc_corner_index(R0, G0, B1, state.lut.size) + 2],
+        state.lut.data[calc_corner_index(R0, G1, B1, state.lut.size) + 2],
+        state.lut.data[calc_corner_index(R1, G0, B1, state.lut.size) + 2],
+        state.lut.data[calc_corner_index(R1, G1, B1, state.lut.size) + 2],
     ]);
 
     // Determine which tetrahedron to use
@@ -1164,39 +1759,5 @@ function tetrahedral_interpolation(input) {
         result_blue = math.multiply(result, Vb);
     }
 
-    return new Color(result_red, result_green, result_blue);
-}
-
-// function drawGrid() {
-//     const width = canvasRamp.width;
-//     const height = canvasRamp.height;
-
-//     ctxRamp.clearRect(0, 0, width, height);
-
-//     const steps = 4;
-//     const stepSizeH = width / steps;
-//     const stepSizeV = height / steps;
-
-//     ctxRamp.beginPath();
-//     ctxRamp.moveTo(0, height);
-//     ctxRamp.lineTo(width, 0);
-
-//     ctxRamp.moveTo(stepSizeH, 0);
-//     for (let i = 1; i < steps; i++) {
-//         ctxRamp.lineTo(stepSizeH * i, height);
-//         ctxRamp.moveTo(stepSizeH * (i + 1), 0);
-//     }
-
-//     ctxRamp.moveTo(0, stepSizeV);
-//     for (let i = 1; i < steps; i++) {
-//         ctxRamp.lineTo(width, stepSizeV * i);
-//         ctxRamp.moveTo(0, stepSizeV * (i + 1));
-//     }
-
-//     ctxRamp.strokeStyle = "rgba(179, 144, 41, 0.5)";
-//     ctxRamp.stroke();
-// }
-
-function calcLuminance(color) {
-    return 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
+    return [result_red, result_green, result_blue];
 }

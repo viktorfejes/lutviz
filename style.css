@@ -1,11 +1,12 @@
 @import url("normalize.css");
 
 :root {
-    --text-color-1: #f0f0f0;
-    --text-color-2: #afafaf;
-    --background-color: #060606;
+    --text-color-1: #e6e6ea;
+    --text-color-2: #aaaaae;
+    --background-color: #101010;
     --panel-bg-color: #1c1c1c;
-    --border-radius: 2rem;
+    --color-accent: #ffc491;
+    --border-radius: 1rem;
     --padding: 2rem;
 }
 
@@ -13,6 +14,9 @@ body {
     font-family: "Inter", sans-serif;
     color: var(--text-color-1);
     background-color: var(--background-color);
+
+    /* TODO: temp */
+    transition: all 0.5ms;
 }
 
 .container {
@@ -35,7 +39,7 @@ body {
 .panel {
     border-radius: var(--border-radius);
     background-color: var(--panel-bg-color);
-    border: 1px solid var(--panel-bg-color);
+    /* border: 1px solid var(--panel-bg-color); */
     overflow: hidden;
 }
 
@@ -128,6 +132,24 @@ canvas#ramp {
     margin: 0;
 }
 
+#upload-button {
+    display: inline-block;
+    border: 0;
+    outline: 0;
+    background-color: var(--color-accent);
+    color: var(--panel-bg-color);
+    font-weight: 600;
+    border-radius: 1rem;
+    padding: 0.5rem 1rem;
+}
+
+.file-upload-area {
+    height: 100px;
+    border: 2px dashed var(--color-accent);
+    width: 300px;
+    border-radius: 1rem;
+}
+
 .block-title {
     display: flex;
     justify-content: center;
@@ -184,7 +206,6 @@ button.blue.active {
 .color-checker {
     max-width: 40rem;
     background-color: #000;
-    border-radius: 2rem;
     padding: 2rem;
     display: flex;
     flex-wrap: wrap;
