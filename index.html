@@ -19,13 +19,47 @@
 </head>
 <body>
     <div class="container">
+        <nav class="sidebar">
+            <input type="file" name="upload" id="file-input" accept=".cube">
+            <div class="infobox panel">
+                <div class="load-box">
+                    <div class="load-icon">
+                        <div class="icon-folder-empty"></div>
+                    </div>
+                    <div class="load-text">
+                        <h2 id="file-name" title="Click here to load your LUT">Load your LUT</h2>
+                        <p id="file-status">Not loaded</p>
+                    </div>
+                </div>
+                <div class="metadata">
+                    <div class="panel-divider"></div>
+                    <p class="panel-label">Title</p>
+                    <h2 id="lut-name">N/A</h2>
+                    <p class="panel-label">Size</p>
+                    <p id="lut-size">0x0x0</p>
+                    <p class="panel-label">Data Domain</p>
+                    <div class="domain">
+                        <table>
+                            <tr id="lut-domain_min">
+                                <td>0.0</td>
+                                <td>0.0</td>
+                                <td>0.0</td>
+                            </tr>
+                            <tr id="lut-domain_max">
+                                <td>1.0</td>
+                                <td>1.0</td>
+                                <td>1.0</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="panel">
+                <h2 class="panel-title">Statistics</h2>
+            </div>
+        </nav>
         <main class="main">
             <div class="main-inner">
-                <nav class="row">
-                    <div class="file-upload-area"></div>
-                    <input type="file" name="upload" id="file-input">
-                    <button type="submit" id="upload-button">Analyze LUT</button>
-                </nav>
                 <div class="row">
                     <div class="col">
                         <div class="ramp panel">
@@ -65,16 +99,7 @@
                         </div>
                     </div>
                     <div class="col">
-                        <div class="infobox panel">
-                            <h2 class="panel-title">LUT Info</h2>
-                            <h2 id="lut-name">N/A</h2>
-                            <p class="author">Unknown author</p>
-                            <p id="lut-size">0x0x0</p>
-                            <p class="size">Size</p>
-                            <p id="lut-domain">0.0 0.0 0.0</p>
-                            <p id="lut-domain">1.0 1.0 1.0</p>
-                            <p class="size">Data Domain</p>
-                        </div>
+                        
                         <div class="panel">
                             <h2 class="panel-title">Color Checker</h2>
                             <div class="color-checker" id="color-checker">

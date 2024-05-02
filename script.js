@@ -306,6 +306,9 @@ const POINT_BASE_COUNT = 20;
 const POINT_SIZE = 0.2;
 
 let state = {
+    config: {
+        is_tetra: true
+    },
     threejs: {
         scene: {},
         camera: {},
@@ -319,8 +322,9 @@ let state = {
         data: [],
         size: 0,
         name: "",
-        is_valid: false,
-        component_size: 3
+        domain_min: [0.0, 0.0, 0.0],
+        domain_max: [1.0, 1.0, 1.0],
+        is_loaded: false
     },
     preview_img: {
         data: [],
@@ -989,7 +993,7 @@ function draw_canvas_grid(canvas, color, stepsH, stepsV = -1, diagonal = true) {
 }
 
 // Upload field and button
-const upload_btn = document.getElementById("upload-button");
+const upload_btn = document.querySelector(".load-box");
 const file_input = document.getElementById("file-input");
 
 // Canvas - for LUT graph/ramp
@@ -1002,7 +1006,8 @@ const canvas_prev_img = document.getElementById("canvas-preview-img");
 // LUT infobox
 const info_name = document.getElementById("lut-name");
 const info_size = document.getElementById("lut-size");
-const info_domain = document.getElementById("lut-domain");
+const info_domain_min = document.getElementById("lut-domain_min");
+const info_domain_max = document.getElementById("lut-domain_max");
 
 // Color checker
 const color_patches = document.querySelectorAll('.color-patch');
@@ -1016,16 +1021,16 @@ document.addEventListener("DOMContentLoaded", (e) => {
     draw_canvas_grid(canvas_graph, [64, 51, 15], 4);
 });
 
-file_input.addEventListener("change", function () {
-    state.file.is_changed = true;
-});
+upload_btn.addEventListener("click", function () {
+    file_input.click();
+})
 
 // Main upload event listener
-upload_btn.addEventListener("click", async function () {
+file_input.addEventListener("change", async function () {
     const file = file_input.files[0];
 
     // Only read in, if we detect a change in file
-    if (file && state.file.is_changed) {
+    if (file) {
         // Blur interface for loading...
         document.querySelector("body").style.filter = "blur(10px)";
 
@@ -1039,8 +1044,11 @@ upload_btn.addEventListener("click", async function () {
                 log("LUT data successfully parsed.", LOG_LEVEL.INFO);
                 log(state.lut.size, LOG_LEVEL.DEBUG);
 
-                // Set the file input state to unchanged
-                state.file.is_changed = false;
+                document.getElementById("file-name").innerText = `${file.name.substring(0, 22)}...`;
+                document.getElementById("file-name").title = file.name;
+                document.getElementById("file-status").innerText = "LUT loaded"
+                document.querySelector(".infobox").classList.add("loaded");
+                document.querySelector(".load-box").classList.add("loaded");
 
                 // Load in the data viz functions
                 await display_lut_data();
@@ -1074,6 +1082,26 @@ async function parse_lut_data(text) {
                 continue;
             }
 
+            if (line.split(' ')[0].toLowerCase() === "domain_min") {
+                // Get domain min
+                const domain_min = line.split(' ').slice(1);
+                if (domain_min.length != 3) {
+                    log("Wrong domain_min format found!", LOG_LEVEL.WARN);
+                }
+                state.lut.domain_min = domain_min;
+                continue;
+            }
+
+            if (line.split(' ')[0].toLowerCase() === "domain_max") {
+                // Get domain max
+                const domain_max = line.split(' ').slice(1);
+                if (domain_max.length != 3) {
+                    log("Wrong domain_max format found!", LOG_LEVEL.WARN);
+                }
+                state.lut.domain_max = domain_max;
+                continue;
+            }
+
             // Check if this is a line for LUT data
             if (line[0] !== 'L' && line[0] !== 'T' && line[0] !== 'D') {
                 const values = line.split(' ');
@@ -1081,10 +1109,6 @@ async function parse_lut_data(text) {
                 state.lut.data.push(parseFloat(values[0]));
                 state.lut.data.push(parseFloat(values[1]));
                 state.lut.data.push(parseFloat(values[2]));
-
-                // const g = parseFloat(values[1]);
-                // const b = parseFloat(values[2]);
-                // state.lut.data.push(new Color(r, g, b));
             }
         }
         // Calculate the size of the LUT based on the data length
@@ -1097,9 +1121,19 @@ async function parse_lut_data(text) {
 }
 
 function update_lut_info() {
-    info_name.innerText = state.lut.name;
+    info_name.innerText = state.lut.name.replaceAll("_", " ");
     info_size.innerText = `${state.lut.size}x${state.lut.size}x${state.lut.size}`;
-    // TODO: update domain info
+
+    // Fill up the domain table
+    if (state.lut.domain_min.length == 3 || state.lut.domain_max == 3) {
+        info_domain_min.querySelector("td:nth-child(1)").innerText = state.lut.domain_min[0];
+        info_domain_min.querySelector("td:nth-child(2)").innerText = state.lut.domain_min[1];
+        info_domain_min.querySelector("td:nth-child(3)").innerText = state.lut.domain_min[2];
+
+        info_domain_max.querySelector("td:nth-child(1)").innerText = state.lut.domain_max[0];
+        info_domain_max.querySelector("td:nth-child(2)").innerText = state.lut.domain_max[1];
+        info_domain_max.querySelector("td:nth-child(3)").innerText = state.lut.domain_max[2];
+    }
 }
 
 // Convenience function to wrap around all the visualization functions
@@ -1376,199 +1410,22 @@ testImage.onload = function () {
     ctxPreview.drawImage(testImage, 0, 0, canvasPreview.width, canvasPreview.height);
 }
 
-// Event listeners
-// uploadInput.addEventListener('change', handleFileUpload);
-// canvasRamp.addEventListener('click', displayCoordinates);
-
-function displayCoordinates() { }
-
-// drawGrid();
-
 function calcCheckerColors(checker) {
     checker.forEach((el, index) => {
         el.style.backgroundColor = `rgb(${find_lut_output(checkerLookup[index].divideScalar(255)).multiplyScalar(255).toArray().join(',')})`;
     });
 }
 
-function handleFileUpload() {
-    const file = uploadInput.files[0];
-
-    if (file) {
-        // Clear the LUT data
-        lutData = [];
-        lutSize = 0;
-
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const content = e.target.result;
-            lutData = parseLUTData(content);
-
-            // Display LUT title and size
-            elTitle.textContent = lutTitle;
-            elSize.textContent = lutSize;
-
-            const imgData = ctxPreview.getImageData(0, 0, canvasPreview.width, canvasPreview.height).data;
-            // Apply lut to image data
-            for (let i = 0; i < imgData.length; i += 4) {
-                const color = new Color(imgData[i] / 255, imgData[i + 1] / 255, imgData[i + 2] / 255);
-                const output = find_lut_output(color);
-                imgData[i] = output.r * 255;
-                imgData[i + 1] = output.g * 255;
-                imgData[i + 2] = output.b * 255;
-            }
-            ctxPreview.putImageData(new ImageData(imgData, canvasPreview.width, canvasPreview.height), 0, 0);
-
-        }
-        reader.readAsText(file);
-    }
-}
-
-function parseLUTData(content) {
-    const lines = content.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-
-        if (line.length === 0 || line[0] === '#') continue;
-
-        if (line.split(' ')[0].toLowerCase() === "title") {
-            // Get the title of the LUT
-            lutTitle = line.split(' ').slice(1).join(' ').replace(/"/g, '');
-            continue;
-        }
-
-        // Check if this is the line for size
-        // using toLowerCase in case the file has different capitalization
-        if (line.split(' ')[0].toLowerCase() === "lut_3d_size") {
-            lutSize = parseInt(line.split(' ')[1]);
-            continue;
-        }
-
-        // Check if this is a line for LUT data
-        if (line[0] !== 'L' && line[0] !== 'T' && line[0] !== 'D') {
-            const values = line.split(' ');
-            const r = parseFloat(values[0]);
-            const g = parseFloat(values[1]);
-            const b = parseFloat(values[2]);
-            lutData.push(new Color(r, g, b));
-        }
-    }
-    lutSize = Math.cbrt(lutData.length);
-
-    displayLUT();
-    calcCheckerColors(colorPatches);
-    return lutData;
-}
-
-// TODO: cache the curve data until new upload
-function displayLUT() {
-    const ctx = canvasRamp.getContext('2d');
-    const width = canvasRamp.width;
-    const height = canvasRamp.height;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
-    ctx.beginPath();
-
-    // Draw grid
-    drawGrid();
-
-    const xCoords = [];
-    const yRCoords = [];
-    const yGCoords = [];
-    const yBCoords = [];
-    const yLCoords = [];
-
-    for (let i = 0; i <= 255; i += 255 / lutSize) {
-        const output = find_lut_output(new Color(i / 255, i / 255, i / 255));
-        const x = i * (width / 256);
-        const yR = height - output.r * height;
-        const yG = height - output.g * height;
-        const yB = height - output.b * height;
-
-        xCoords.push(x);
-        yRCoords.push(yR);
-        yGCoords.push(yG);
-        yBCoords.push(yB);
-        yLCoords.push(height - output.getLuminance() * height);
-    }
-
-    // TEMP LOOP
-    // const verts = [];
-    // const interval = lutSize / 20;
-    // for (let bIndex = 0; bIndex < lutSize; bIndex += interval) {
-    //     for (let gIndex = 0; gIndex < lutSize; gIndex += interval) {
-    //         for (let rIndex = 0; rIndex < lutSize; rIndex += interval) {
-    //             const index = Math.floor(rIndex) * lutSize * lutSize + Math.floor(gIndex) * lutSize + Math.floor(bIndex);
-    //             const color = lutData[index];
-    //             verts.push({ r: color.r, g: color.g, b: color.b });
-    //         }
-    //     }
-    // }
-    // console.log(verts);
-
-    // TODO: can be a single loop
-    // maybe even along with the above for loop...
-
-    // Red curve
-    if (channels.r) {
-        ctx.beginPath();
-        ctx.moveTo(0, yRCoords[0]);
-        for (let i = 1; i < xCoords.length; i++) {
-            if (yRCoords[i] <= 0) console.log(yRCoords[i]);
-            ctx.lineTo(xCoords[i], yRCoords[i]);
-            // ctx.arc(xCoords[i], yRCoords[i], 3, 0, 2 * Math.PI, false);
-        }
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = 'red';
-        ctx.stroke();
-    }
-
-    // Green curve
-    if (channels.g) {
-        ctx.beginPath();
-        ctx.moveTo(0, yGCoords[0]);
-        for (let i = 1; i < xCoords.length; i++) {
-            ctx.lineTo(xCoords[i], yGCoords[i]);
-            // ctx.arc(xCoords[i], yGCoords[i], 3, 0, 2 * Math.PI, false);
-        }
-        ctx.strokeStyle = 'green';
-        ctx.stroke();
-    }
-
-    // Blue curve
-    if (channels.b) {
-        ctx.beginPath();
-        ctx.moveTo(0, yBCoords[0]);
-        for (let i = 1; i < xCoords.length; i++) {
-            ctx.lineTo(xCoords[i], yBCoords[i]);
-            // ctx.arc(xCoords[i], yBCoords[i], 3, 0, 2 * Math.PI, false);
-        }
-        ctx.strokeStyle = 'blue';
-        ctx.stroke();
-    }
-
-    // Luminance curve
-    if (channels.l) {
-        ctx.beginPath();
-        ctx.moveTo(0, yLCoords[0]);
-        for (let i = 1; i < xCoords.length; i++) {
-            ctx.lineTo(xCoords[i], yLCoords[i]);
-            // ctx.arc(xCoords[i], yBCoords[i], 3, 0, 2 * Math.PI, false);
-        }
-        ctx.strokeStyle = 'gray';
-        ctx.stroke();
-    }
-
-}
-
 /**
- * Returns the interpolated color based on an input,
+ * Returns the interpolated color based on an input and mode,
  * LUT data, and interpolation method.
  * 
  * @param {array} input Input color as an array [R, G, B]
+ * @param {bool} is_tetra Whether the interpolation used should be
+ * tetrahedral or trilinear. Optional.
  * @returns {array} interpolated color [R, G, B]
  */
-function find_lut_output(input) {
+function find_lut_output(input, is_tetra = true) {
     // Map color to domain [0, 1]
     // const domainColor = input.remap(0, 1, 0, 1);
     const domainColor = remap_color(input, 0, 1, 0, 1);
@@ -1578,28 +1435,27 @@ function find_lut_output(input) {
     const gridColor = mul_scalar(domainColor, state.lut.size - 1);
 
     // Interpolate
-    // tetraInterp(gridColor);
-    // const interpColor = trilerp(gridColor);
-    const interpColor = tetrahedral_interpolation(gridColor);
+    const interpColor = is_tetra ? tetrahedral_interpolation(gridColor) : trilerp(gridColor);
 
     return interpColor;
 }
 
 // Trilinear interpolation
 // xyz > bgr
+// TODO: Finish reimplementing trilerp WITHOUT color object!
 function trilerp(input) {
-    const x_floor = Math.floor(input.b);
-    const y_floor = Math.floor(input.g);
-    const z_floor = Math.floor(input.r);
+    const x_floor = Math.floor(input[2]);
+    const y_floor = Math.floor(input[1]);
+    const z_floor = Math.floor(input[0]);
 
-    const x_ceil = Math.ceil(input.b);
-    const y_ceil = Math.ceil(input.g);
-    const z_ceil = Math.ceil(input.r);
+    const x_ceil = Math.ceil(input[2]);
+    const y_ceil = Math.ceil(input[1]);
+    const z_ceil = Math.ceil(input[0]);
 
     // Calculate weights for each dimension based on distance normalized
-    const u = (x_floor == x_ceil) ? 0.0 : (input.b - x_floor) / (x_ceil - x_floor);
-    const v = (y_floor == y_ceil) ? 0.0 : (input.g - y_floor) / (y_ceil - y_floor);
-    const w = (z_floor == z_ceil) ? 0.0 : (input.r - z_floor) / (z_ceil - z_floor);
+    const u = (x_floor == x_ceil) ? 0.0 : (input[2] - x_floor) / (x_ceil - x_floor);
+    const v = (y_floor == y_ceil) ? 0.0 : (input[1] - y_floor) / (y_ceil - y_floor);
+    const w = (z_floor == z_ceil) ? 0.0 : (input[0] - z_floor) / (z_ceil - z_floor);
 
     // Find points of the cube
     const p000 = state.lut.data[(x_floor * state.lut.size + y_floor) * state.lut.size + z_floor];
