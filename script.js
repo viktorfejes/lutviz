@@ -481,7 +481,7 @@ function init_preview_img() {
 
     const geo = new THREE.PlaneGeometry(2, 2);
     const texture = new THREE.TextureLoader().load(
-        "assets/images/prev_image2.jpg",
+        "assets/images/prev_image4.jpg",
         () => {
             console.log("Image loaded");
             texture.colorSpace = THREE.SRGBColorSpace;
@@ -1150,10 +1150,11 @@ async function display_lut_data() {
     // Mutate the 3D cube
     await display_lut_cube();
 
-    console.log(state.lut.data.length);
-
     // Apply LUT to preview image
     await display_lut_as_preview();
+
+    // Show statistics
+    await display_lut_statistics();
 }
 
 async function display_lut_graph() {
@@ -1341,6 +1342,90 @@ async function display_lut_as_preview() {
 
         resolve();
     });
+}
+
+async function display_lut_statistics() {
+    const overall_sat_el = document.getElementById("overall-saturation");
+
+    return new Promise((resolve) => {
+        let overall_sat_deviation = 0;
+
+        const base_colors = [
+            [0.5, 0.125, 0.125], // Red
+            [0.5, 0.5, 0.125], // Yellow (yuck!)
+            [0.125, 0.5, 0.125], // Green
+            [0.125, 0.5, 0.5], // Cyan
+            [0.125, 0.125, 0.5], // Blue
+            [0.5, 0.125, 0.5] // Magenta
+        ]
+
+        for (let i = 0; i < base_colors.length; i++) {
+            // Apply the LUT to the color
+            const output = find_lut_output(base_colors[i]);
+
+            // Get HSV saturation from input color
+            const input_sat = rgb_to_hsv(base_colors[i][0], base_colors[i][1], base_colors[i][2])[1];
+
+            // Get HSV saturation from output color (lut converted color)
+            const output_sat = rgb_to_hsv(output[0], output[1], output[2])[1];
+
+            const deviation = output_sat - input_sat;
+
+            console.log(deviation);
+            overall_sat_deviation += deviation;
+        }
+        overall_sat_deviation /= base_colors.length;
+        overall_sat_el.innerText = `Overall Saturation Change: ${Math.round(overall_sat_deviation * 100)}%`;
+        console.log(overall_sat_deviation);
+
+        const red = [0.5, 0.125, 0.125]; // 75% sat, 50% lum
+        const output_red = find_lut_output(red);
+        const input_red_sat = rgb_to_hsv(red[0], red[1], red[2])[1];
+        const output_red_sat = rgb_to_hsv(output_red[0], output_red[1], output_red[2])[1];
+        const red_sat_deviation = output_red_sat - input_red_sat;
+
+        resolve();
+    });
+}
+
+function rgb_to_hsv(r, g, b) {
+    let hue, sat, value;
+
+    let red = r;
+    let green = g;
+    let blue = b;
+
+    let rgb = [red, green, blue]
+    let cMin = Math.min(...rgb)
+    let cMax = Math.max(...rgb)
+
+    // If no saturation, set hue to 0 deg
+    if (cMax - cMin == 0) {
+        hue = 0
+        sat = 0
+    } else {
+        let nMax = rgb.indexOf(cMax)
+
+        switch (nMax) {
+            case 0:
+                hue = (green - blue) / (cMax - cMin)
+                break;
+            case 1:
+                hue = 2.0 + (blue - red) / (cMax - cMin)
+                break;
+            case 2:
+                hue = 4.0 + (red - green) / (cMax - cMin)
+                break;
+        }
+
+        hue = (hue < 0) ? (hue * 60) + 360 : (hue * 60)
+        sat = (cMax - cMin) / cMax
+    }
+
+    // Value
+    value = cMax
+
+    return [Math.round(hue), sat, value]
 }
 
 // TODO: make it better?
